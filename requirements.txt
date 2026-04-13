@@ -1,0 +1,5 @@
+aiohttp
+pyyaml
+rapidfuzz
+pandas
+pyarrow
