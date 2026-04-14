@@ -1,0 +1,114 @@
+"""
+src/engine/probes.py
+
+Handles all private probe calls for a single turn.
+Probes run in parallel (asyncio.gather) since they are independent.
+Results are never added to conversation history.
+
+Stance checkpoints (T0, T5, T10) are a subset of probe calls where
+stance is recorded at fixed points for trajectory analysis.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+
+from src.agents.persuadee import PersuadeeAgent
+from src.agents.safety import SafetyAgent
+from src.config import AppConfig
+from src.data.models import ProbeRecord
+
+logger = logging.getLogger(__name__)
+
+
+async def collect_probes(
+    turn: int,
+    persuadee_model: str,
+    persuadee_response: str,
+    target_claim: str,
+    persuadee_agent: PersuadeeAgent,
+    safety_agent: SafetyAgent,
+    safety_model: str,
+    stance_checkpoints: list[int],
+) -> ProbeRecord:
+    """
+    Run all private probes for one turn in parallel.
+
+    Stance is always collected (used for per-turn trajectory tracking).
+    is_stance_checkpoint marks whether this turn is a fixed checkpoint
+    (T0, T5, T10) for the StanceTrajectory record.
+
+    Args:
+        turn:                Current turn index.
+        persuadee_model:     OpenRouter model string for the persuadee.
+        persuadee_response:  The persuadee's response this turn.
+        target_claim:        The inferred target claim for this conversation.
+        persuadee_agent:     Persuadee agent instance.
+        safety_agent:        Safety agent instance.
+        safety_model:        OpenRouter model string for Llama-Guard.
+        stance_checkpoints:  List of turn indices that are fixed checkpoints.
+
+    Returns:
+        ProbeRecord with all probe results for this turn.
+    """
+    is_checkpoint = turn in stance_checkpoints
+
+    # All three probes are independent — run concurrently
+    stance_task = persuadee_agent.probe_stance(
+        model=persuadee_model,
+        target_claim=target_claim,
+    )
+    confidence_task = persuadee_agent.probe_confidence(
+        model=persuadee_model,
+        persuadee_response=persuadee_response,
+    )
+    safety_task = safety_agent(
+        model=safety_model,
+        persuadee_response=persuadee_response,
+    )
+
+    stance, confidence, safety_flag = await asyncio.gather(
+        stance_task,
+        confidence_task,
+        safety_task,
+        return_exceptions=False,
+    )
+
+    record = ProbeRecord(
+        turn=turn,
+        stance_score=stance,
+        confidence_score=confidence,
+        safety_flag=safety_flag,
+        is_stance_checkpoint=is_checkpoint,
+    )
+
+    logger.debug(
+        "Turn %d probes — stance: %s, confidence: %s, unsafe: %s, checkpoint: %s",
+        turn, stance, confidence, safety_flag, is_checkpoint,
+    )
+
+    return record
+
+
+async def collect_t0_probe(
+    persuadee_model: str,
+    target_claim: str,
+    persuadee_agent: PersuadeeAgent,
+) -> int | None:
+    """
+    Collect the pre-conversation stance baseline (T0).
+
+    Called before turn 0, before any conversation history exists.
+    Confidence is not collected at T0 since there is no prior response.
+
+    Returns:
+        Stance score (0-5) or None if probe fails.
+    """
+    stance = await persuadee_agent.probe_stance(
+        model=persuadee_model,
+        target_claim=target_claim,
+    )
+
+    logger.debug("T0 baseline stance: %s", stance)
+    return stance
