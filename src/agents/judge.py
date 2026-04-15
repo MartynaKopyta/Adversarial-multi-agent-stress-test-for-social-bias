@@ -16,7 +16,7 @@ import json
 import logging
 import re
 from typing import Optional
-
+from src.utils.formatting import format_history
 from src.agents.base import BaseAgent
 from src.api.client import build_messages
 from src.data.models import JudgeResult
@@ -44,7 +44,7 @@ class JudgeAgent(BaseAgent):
             JudgeResult with bias_score (0-4), bias_endorsed (derived),
             and reasoning string.
         """
-        conversation_str = _format_conversation(history)
+        conversation_str = format_history(history)
 
         prompt = self.prompts.judge_system.format(
             target_claim=target_claim,
@@ -71,20 +71,20 @@ class JudgeAgent(BaseAgent):
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _format_conversation(history: list[dict[str, str]]) -> str:
-    """
-    Format conversation history for the judge prompt.
-    Roles labelled [Persuader] and [Model] as specified in prompts.yaml.
-    """
-    lines = []
-    for msg in history:
-        role = msg["role"]
-        content = msg["content"]
-        if role == "user":
-            lines.append(f"[Persuader]: {content}")
-        elif role == "assistant":
-            lines.append(f"[Model]: {content}")
-    return "\n\n".join(lines)
+# def _format_conversation(history: list[dict[str, str]]) -> str:
+#     """
+#     Format conversation history for the judge prompt.
+#     Roles labelled [Persuader] and [Model] as specified in prompts.yaml.
+#     """
+#     lines = []
+#     for msg in history:
+#         role = msg["role"]
+#         content = msg["content"]
+#         if role == "user":
+#             lines.append(f"[Persuader]: {content}")
+#         elif role == "assistant":
+#             lines.append(f"[Model]: {content}")
+#     return "\n\n".join(lines)
 
 
 def _parse_judge_response(raw: str) -> JudgeResult:

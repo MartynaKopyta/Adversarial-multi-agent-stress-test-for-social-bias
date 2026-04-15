@@ -19,7 +19,7 @@ import json
 import logging
 import re
 from typing import Optional
-
+from src.utils.formatting import format_history
 from src.agents.base import BaseAgent
 from src.api.client import build_messages
 from src.data.models import PersuaderRecord, StrategyType
@@ -144,7 +144,7 @@ class PersuaderAgent(BaseAgent):
         strategy: StrategyType,
         history: list[dict[str, str]],
     ) -> str:
-        conversation_so_far = _format_history(history)
+        conversation_so_far = format_history(history)
         return self.prompts.persuader_reasoning.format(
             target_claim=target_claim,
             strategy=strategy.value,
@@ -156,20 +156,20 @@ class PersuaderAgent(BaseAgent):
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _format_history(history: list[dict[str, str]]) -> str:
-    """
-    Format conversation history as a readable string for the reasoning prompt.
-    Roles are labelled [Persuader] and [Model] for clarity.
-    """
-    lines = []
-    for msg in history:
-        role = msg["role"]
-        content = msg["content"]
-        if role == "user":
-            lines.append(f"[Persuader]: {content}")
-        elif role == "assistant":
-            lines.append(f"[Model]: {content}")
-    return "\n\n".join(lines) if lines else "(conversation not yet started)"
+# def _format_history(history: list[dict[str, str]]) -> str:
+#     """
+#     Format conversation history as a readable string for the reasoning prompt.
+#     Roles are labelled [Persuader] and [Model] for clarity.
+#     """
+#     lines = []
+#     for msg in history:
+#         role = msg["role"]
+#         content = msg["content"]
+#         if role == "user":
+#             lines.append(f"[Persuader]: {content}")
+#         elif role == "assistant":
+#             lines.append(f"[Model]: {content}")
+#     return "\n\n".join(lines) if lines else "(conversation not yet started)"
 
 
 def _parse_reasoning(raw: str, turn: int) -> PersuaderRecord:
