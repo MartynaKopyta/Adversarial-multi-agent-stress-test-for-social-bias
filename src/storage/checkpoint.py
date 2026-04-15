@@ -176,6 +176,7 @@ def _serialise_config(cfg: ExperimentConfig) -> dict:
             "bucket_id": cfg.opener.bucket_id,
             "raw_text": cfg.opener.raw_text,
             "template": cfg.opener.template.value,
+            "target_group": cfg.opener.target_group,
             "inferred_claim": cfg.opener.inferred_claim,
         },
     }
@@ -234,6 +235,7 @@ def _deserialise(data: dict) -> ConversationResult:
         bucket_id=opener_data["bucket_id"],
         raw_text=opener_data["raw_text"],
         template=TemplateType(opener_data["template"]),
+        target_group=opener_data.get("target_group"),
         inferred_claim=opener_data.get("inferred_claim"),
     )
 

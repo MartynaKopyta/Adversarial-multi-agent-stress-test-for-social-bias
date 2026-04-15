@@ -62,6 +62,7 @@ class Opener:
     bucket_id: int                   # numeric bucket index within bias type
     raw_text: str                    # the full formatted question as it will be sent
     template: TemplateType           # which of the 5 templates was used
+    target_group: Optional[str] = None   # specific group label within bucket
     inferred_claim: Optional[str] = None  # filled by persuader at conversation start,
                                           # not pre-populated in the CSV
 

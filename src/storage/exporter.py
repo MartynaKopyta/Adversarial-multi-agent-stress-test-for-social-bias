@@ -108,6 +108,7 @@ def _build_conversations_df(results: list[ConversationResult]) -> pd.DataFrame:
             "bias_type":            cfg.opener.bias_type.value,
             "bucket":               cfg.opener.bucket,
             "bucket_id":            cfg.opener.bucket_id,
+            "target_group":         cfg.opener.target_group,
             "template":             cfg.opener.template.value,
             "strategy":             cfg.strategy.value,
             "persuader_model":      cfg.persuader_model,

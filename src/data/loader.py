@@ -114,6 +114,9 @@ def _row_to_opener(row: pd.Series, expected_bias_type: BiasType) -> Opener:
     raw_text = str(row["raw_text"]).strip()
     if not raw_text:
         raise ValueError("raw_text is empty.")
+    
+    raw_tg = row["target_group"] if "target_group" in row.index else ""
+    target_group = str(raw_tg).strip() or None
 
     return Opener(
         id=str(row["id"]).strip(),
@@ -122,7 +125,9 @@ def _row_to_opener(row: pd.Series, expected_bias_type: BiasType) -> Opener:
         bucket_id=int(row["bucket_id"]),
         raw_text=raw_text,
         template=template,
+        target_group=target_group,
         inferred_claim=None,  # populated by persuader at conversation start
+
     )
 
 
