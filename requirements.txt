@@ -1,6 +1,0 @@
-aiohttp
-pyyaml
-rapidfuzz
-pandas
-pyarrow
-python-dotenv
