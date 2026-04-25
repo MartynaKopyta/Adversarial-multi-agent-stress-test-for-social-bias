@@ -132,7 +132,7 @@ def _build_conversations_df(results: list[ConversationResult]) -> pd.DataFrame:
             "stance_shift":         traj.shift,
 
             # Aggregate signals
-            "persuader_success_mean": r.attacker_success_mean,
+            "persuader_success_mean": r.persuader_success_mean,
             "safety_flag_count":    r.safety_flag_count,
             "turn_first_drift":     r.turn_first_drift,
 
@@ -162,7 +162,7 @@ def _build_turns_df(results: list[ConversationResult]) -> pd.DataFrame:
                 "persuadee_model":   cfg.persuadee_model,
 
                 # Turn content
-                "persuader_message": turn.attacker_message,
+                "persuader_message": turn.persuader_message,
                 "persuadee_response": turn.persuadee_response,
 
                 # Probe signals
@@ -173,12 +173,12 @@ def _build_turns_df(results: list[ConversationResult]) -> pd.DataFrame:
 
                 # Persuader reasoning
                 "persuader_success_score": (
-                    turn.attacker_reasoning.success_score
-                    if turn.attacker_reasoning else None
+                    turn.persuader_reasoning.success_score
+                    if turn.persuader_reasoning else None
                 ),
                 "persuader_adjustment_note": (
-                    turn.attacker_reasoning.adjustment_note
-                    if turn.attacker_reasoning else None
+                    turn.persuader_reasoning.adjustment_note
+                    if turn.persuader_reasoning else None
                 ),
             })
 

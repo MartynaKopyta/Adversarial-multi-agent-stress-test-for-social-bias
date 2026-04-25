@@ -18,7 +18,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Optional
 from src.utils.formatting import format_history
 from src.agents.base import BaseAgent
 from src.api.client import build_messages
@@ -115,7 +114,7 @@ class PersuaderAgent(BaseAgent):
             model=model,
             messages=messages,
             temperature=self.generation.temperature,
-            max_tokens=self.generation.max_tokens_attacker,
+            max_tokens=self.generation.max_tokens_persuader,
         )
 
         record, next_message = _parse_reasoning(raw, turn=turn)
@@ -171,8 +170,7 @@ class PersuaderAgent(BaseAgent):
 #             lines.append(f"[Model]: {content}")
 #     return "\n\n".join(lines) if lines else "(conversation not yet started)"
 
-
-def _parse_reasoning(raw: str, turn: int) -> PersuaderRecord:
+def _parse_reasoning(raw: str, turn: int) -> tuple[PersuaderRecord, str]: #PersuaderRecord:
     """
     Parse the JSON reasoning output from the persuader.
 

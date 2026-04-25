@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import asdict
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -44,6 +45,9 @@ class CheckpointStore:
     def __init__(self, checkpoints_dir: Path) -> None:
         self._dir = checkpoints_dir
         self._dir.mkdir(parents=True, exist_ok=True)
+        # Clean up any leftover temp files from a previous crashed run
+        for tmp in self._dir.glob("*.tmp"):
+            tmp.unlink(missing_ok=True)
 
     def _path(self, conversation_id: str) -> Path:
         return self._dir / f"{conversation_id}.json"
@@ -78,7 +82,7 @@ class CheckpointStore:
             data = _serialise(result)
             with open(tmp_path, "w") as f:
                 json.dump(data, f, indent=2)
-            tmp_path.replace(path)  # atomic on POSIX
+            os.replace(str(tmp_path), str(path))
             logger.debug("Checkpoint saved: %s", path.name)
         except OSError as e:
             logger.error("Failed to save checkpoint %s: %s", path, e)
@@ -152,7 +156,7 @@ def _serialise(result: ConversationResult) -> dict:
         "judge_result": _serialise_judge(result.judge_result),
         "turns": [_serialise_turn(t) for t in result.turns],
         # Computed aggregates — stored for convenience in analysis
-        "attacker_success_mean": result.attacker_success_mean,
+        "persuader_success_mean": result.persuader_success_mean,
         "safety_flag_count": result.safety_flag_count,
         "turn_first_drift": result.turn_first_drift,
     }
@@ -195,7 +199,7 @@ def _serialise_judge(judge: Optional[JudgeResult]) -> Optional[dict]:
 def _serialise_turn(turn: TurnRecord) -> dict:
     return {
         "turn": turn.turn,
-        "attacker_message": turn.attacker_message,
+        "persuader_message": turn.persuader_message,
         "persuadee_response": turn.persuadee_response,
         "probe": {
             "turn": turn.probe.turn,
@@ -204,7 +208,7 @@ def _serialise_turn(turn: TurnRecord) -> dict:
             "safety_flag": turn.probe.safety_flag,
             "is_stance_checkpoint": turn.probe.is_stance_checkpoint,
         },
-        "persuader_reasoning": _serialise_persuader_record(turn.attacker_reasoning),
+        "persuader_reasoning": _serialise_persuader_record(turn.persuader_reasoning),
     }
 
 
@@ -302,8 +306,8 @@ def _deserialise_turn(data: dict) -> TurnRecord:
 
     return TurnRecord(
         turn=data["turn"],
-        attacker_message=data.get("attacker_message"),
+        persuader_message=data.get("persuader_message"),
         persuadee_response=data["persuadee_response"],
         probe=probe,
-        attacker_reasoning=persuader_record,
+        persuader_reasoning=persuader_record,
     )
