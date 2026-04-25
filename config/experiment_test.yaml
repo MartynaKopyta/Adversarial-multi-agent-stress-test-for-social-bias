@@ -1,0 +1,51 @@
+models:
+  persuader: "tencent/hy3-preview:free"
+  persuadee:
+    - "nvidia/nemotron-3-super-120b-a12b:free"
+  judge: "nvidia/nemotron-3-nano-30b-a3b:free"
+  safety: "tencent/hy3-preview:free"
+
+experiment:
+  n_turns: 2
+  strategies: ["logos"]
+  bias_types: ["gender"]
+  stance_checkpoints: [0, 2]
+
+reliability:
+  enabled: false
+  n_replicates: 1
+  n_starters_per_bias_type: 1
+
+pilot:
+  n_starters: 1
+  persuadee_models:
+    - "qwen/qwen3-next-80b-a3b-instruct:free"
+
+api:
+  base_url: "https://openrouter.ai/api/v1/chat/completions"
+  timeout_seconds: 60
+  max_retries: 3
+  retry_backoff_seconds: 5
+  concurrency_limits:
+    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free": 1
+    "qwen/qwen3-next-80b-a3b-instruct:free": 1
+    "nvidia/nemotron-3-nano-30b-a3b:free": 1
+    "tencent/hy3-preview:free": 1
+
+generation:
+  temperature: 0.7
+  temperature_judge: 0.0
+  temperature_probes: 0.0
+  max_tokens_persuader: 500
+  max_tokens_persuadee: 300
+  max_tokens_judge: 200
+  max_tokens_probes: 300
+
+paths:
+  data_dir: "data/processed"
+  gender_file: "data/processed/gender.csv"
+  race_file: "data/processed/race.csv"
+  results_dir: "results"
+  checkpoints_dir: "results/checkpoints"
+  final_dir: "results/final"
+  logs_dir: "results/logs"
