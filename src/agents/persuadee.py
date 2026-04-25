@@ -14,9 +14,10 @@ from __future__ import annotations
 
 import logging
 from typing import Optional
+import re
 
 from src.agents.base import BaseAgent
-from src.api.client import build_messages
+from src.api.client import ApiError, build_messages
 
 logger = logging.getLogger(__name__)
 
@@ -84,12 +85,16 @@ class PersuadeeAgent(BaseAgent):
             user_message=prompt,
         )
 
-        raw = await self._client.complete(
-            model=model,
-            messages=messages,
-            temperature=self.generation.temperature_probes,
-            max_tokens=self.generation.max_tokens_probes,
-        )
+        try:
+            raw = await self._client.complete(
+                model=model,
+                messages=messages,
+                temperature=self.generation.temperature_probes,
+                max_tokens=self.generation.max_tokens_probes,
+            )
+        except ApiError as e:
+            logger.warning("Stance probe failed for model '%s': %s. Storing None.", model, e)
+            return None
 
         return _parse_int(raw, valid_range=(0, 5), label="stance", model=model)
 
@@ -140,26 +145,34 @@ def _parse_int(
     label: str,
     model: str,
 ) -> Optional[int]:
-    """
-    Parse a single integer from a probe response.
-    Strips whitespace and any trailing punctuation.
-    Returns None and logs a warning if parsing fails or value is out of range.
-    """
+    text = raw.strip()
+
+    # Clean number with possible trailing dot, e.g. "3."
     try:
-        value = int(raw.strip().rstrip("."))
+        value = int(text.rstrip("."))
         lo, hi = valid_range
         if lo <= value <= hi:
             return value
-        logger.warning(
-            "Probe '%s' from model '%s' returned out-of-range value %d "
-            "(expected %d-%d). Storing None.",
-            label, model, value, lo, hi,
-        )
-        return None
     except ValueError:
-        logger.warning(
-            "Probe '%s' from model '%s' could not be parsed as int: %r. "
-            "Storing None.",
-            label, model, raw,
-        )
-        return None
+        pass
+
+    # Fraction format like "3/5" or "3 / 5"
+    frac_match = re.search(r"\b(\d{1,3})\s*/\s*\d{1,3}\b", text)
+    if frac_match:
+        value = int(frac_match.group(1))
+        lo, hi = valid_range
+        if lo <= value <= hi:
+            return value
+
+    # Standalone number in the text, e.g. "I would say 4 out of 5"
+    nums = re.findall(r"\b\d{1,3}\b", text)
+    nums_in_range = [int(n) for n in nums if valid_range[0] <= int(n) <= valid_range[1]]
+
+    if len(nums_in_range) == 1:
+        return nums_in_range[0]
+
+    logger.warning(
+        "Probe '%s' from model '%s' could not be parsed safely: %r. Storing None.",
+        label, model, raw,
+    )
+    return None

@@ -18,7 +18,6 @@ After all turns:
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from src.agents.judge import JudgeAgent
 from src.agents.persuadee import PersuadeeAgent
@@ -156,13 +155,17 @@ async def _execute(
 
     result.turns.append(TurnRecord(
         turn=0,
-        attacker_message=None,          # opener sent as user, not from persuader
+        persuader_message=None,          # opener sent as user, not from persuader
         persuadee_response=persuadee_response,
         probe=probe_0,
-        attacker_reasoning=None,        # no persuader reasoning at turn 0
+        persuader_reasoning=None,        # no persuader reasoning at turn 0
     ))
 
-    _update_stance_trajectory(result.stance_trajectory, probe_0)
+    _update_stance_trajectory(
+        result.stance_trajectory,
+        probe_0,
+        stance_checkpoints,
+    )
 
     logger.debug("Turn 0 complete.")
 
@@ -206,13 +209,17 @@ async def _execute(
 
         result.turns.append(TurnRecord(
             turn=turn,
-            attacker_message=next_message,
+            persuader_message=next_message,
             persuadee_response=persuadee_response,
             probe=probe,
-            attacker_reasoning=persuader_record,
+            persuader_reasoning=persuader_record,
         ))
 
-        _update_stance_trajectory(result.stance_trajectory, probe)
+        _update_stance_trajectory(
+            result.stance_trajectory,
+            probe,
+        stance_checkpoints,
+        )
 
         logger.debug(
             "Turn %d complete. Persuader success estimate: %d",
@@ -249,15 +256,29 @@ async def _execute(
 def _update_stance_trajectory(
     trajectory: StanceTrajectory,
     probe: "ProbeRecord",
+    stance_checkpoints: list[int],
 ) -> None:
     """
-    Write stance score into the trajectory at checkpoint turns.
-    T0 is set before the loop; T5 and T10 are set here.
+    Write stance score into the trajectory at configured checkpoint turns.
+
+    Assumes checkpoint 0 is handled separately before the conversation loop.
+    If one post-conversation checkpoint is configured, store it as t10.
+    If two post-conversation checkpoints are configured, store them as t5 and t10.
     """
     if not probe.is_stance_checkpoint:
         return
 
-    if probe.turn == 5:
+    post_checkpoints = [c for c in stance_checkpoints if c != 0]
+
+    if not post_checkpoints:
+        return
+
+    if len(post_checkpoints) == 1:
+        if probe.turn == post_checkpoints[0]:
+            trajectory.t10 = probe.stance_score
+        return
+
+    if probe.turn == post_checkpoints[0]:
         trajectory.t5 = probe.stance_score
-    elif probe.turn == 10:
+    elif probe.turn == post_checkpoints[-1]:
         trajectory.t10 = probe.stance_score

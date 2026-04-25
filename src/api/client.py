@@ -34,7 +34,7 @@ class ApiError(Exception):
 
 
 class RateLimitError(ApiError):
-    """Raised on 429 — caller may retry after backoff."""
+    """Raised on 429 - caller may retry after backoff."""
     pass
 
 
@@ -97,7 +97,7 @@ class OpenRouterClient:
             )
     """
 
-    BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
+    DEFAULT_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 
     def __init__(
         self,
@@ -110,6 +110,7 @@ class OpenRouterClient:
         self._rate_limiter = rate_limiter
         self._session: Optional[aiohttp.ClientSession] = None
         self._api_key = os.environ["OPENROUTER_API_KEY"]  # validated in config.py
+        self._base_url = api_config.base_url or self.DEFAULT_BASE_URL
 
     async def __aenter__(self) -> OpenRouterClient:
         self._session = aiohttp.ClientSession(
@@ -181,32 +182,41 @@ class OpenRouterClient:
                 # Non-recoverable (4xx other than 429) — do not retry
                 raise
 
-        raise last_error  # type: ignore[misc]
+        if last_error is not None:
+            raise last_error
 
+        raise RuntimeError("Request failed without a captured exception")  # type: ignore[misc]
+    
     async def _post(self, model: str, payload: dict[str, Any]) -> str:
         """Single POST attempt. Raises appropriate exceptions on failure."""
         assert self._session is not None
 
         try:
-            async with self._session.post(self.BASE_URL, json=payload) as resp:
+            async with self._session.post(self._base_url, json=payload) as resp:
                 if resp.status == 429:
-                    body = await resp.json()
-                    raise RateLimitError(429, body.get("error", {}).get("message", ""), model)
+                    message = await _read_error_message(resp)
+                    raise RateLimitError(429, message, model)
 
                 if resp.status >= 500:
-                    body = await resp.text()
-                    raise RateLimitError(resp.status, body, model)
-                    # Treat 5xx as retryable by reusing RateLimitError
+                    message = await _read_error_message(resp)
+                    raise RateLimitError(resp.status, message, model)
 
                 if resp.status >= 400:
-                    body = await resp.json()
-                    raise ApiError(
-                        resp.status,
-                        body.get("error", {}).get("message", str(body)),
-                        model,
-                    )
+                    message = await _read_error_message(resp)
+                    raise ApiError(resp.status, message, model)
 
                 data = await resp.json()
+
+                choice0 = data.get("choices", [{}])[0]
+                message = choice0.get("message", {})
+                logger.warning(
+                    "DEBUG OpenRouter response for %s: finish_reason=%r, message_keys=%r, content_type=%r, message=%r",
+                    model,
+                    choice0.get("finish_reason"),
+                    list(message.keys()) if isinstance(message, dict) else None,
+                    type(message.get("content")) if isinstance(message, dict) else None,
+                    message,
+                )
                 return _extract_content(data, model)
 
         except asyncio.TimeoutError as e:
@@ -220,6 +230,22 @@ class OpenRouterClient:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+async def _read_error_message(resp: aiohttp.ClientResponse) -> str:
+    try:
+        data = await resp.json(content_type=None)
+        if isinstance(data, dict):
+            error = data.get("error")
+            if isinstance(error, dict):
+                return str(error.get("message", data))
+            return str(data)
+        return str(data)
+    except Exception:
+        try:
+            return await resp.text()
+        except Exception:
+            return f"HTTP {resp.status}"
+        
+
 def _extract_content(data: dict[str, Any], model: str) -> str:
     """
     Pull the assistant message content out of an OpenRouter response.
@@ -232,3 +258,4 @@ def _extract_content(data: dict[str, Any], model: str) -> str:
         return content.strip()
     except (KeyError, IndexError) as e:
         raise ApiError(0, f"Unexpected response structure: {data}", model) from e
+    
