@@ -15,10 +15,9 @@ Usage:
     python main.py --mode full --config config/experiment.yaml
     python main.py --mode full --prompts config/prompts.yaml
 """
+from __future__ import annotations
 from dotenv import load_dotenv
 load_dotenv()
-from __future__ import annotations
-
 import argparse
 import asyncio
 import logging
@@ -75,6 +74,12 @@ Run modes:
         action="store_true",
         help="Shorthand for --mode export.",
     )
+    parser.add_argument(
+        "--opener-id",
+        type=str,
+        default=None,
+        help="Run pilot with a specific opener ID instead of the first N.",
+    )
     return parser.parse_args()
 
 
@@ -127,11 +132,16 @@ async def main() -> int:
     logger.info("Loaded %d openers.", len(openers))
 
     # --- Run conversations ---
-    rate_limiter = RateLimiter(config.api.concurrency_limits)
+    # rate_limiter = RateLimiter(config.api.concurrency_limits)
+    rate_limiter = RateLimiter(
+    config.api.concurrency_limits,
+    config.api.rpm_limits,
+)
+
 
     async with OpenRouterClient(config.api, config.generation, rate_limiter) as client:
         orchestrator = Orchestrator(config, client)
-        results = await orchestrator.run(openers, mode)
+        results = await orchestrator.run(openers, mode, args.opener_id)
 
     # --- Export after run (skip for dry-run) ---
     if mode != RunMode.DRY_RUN:
