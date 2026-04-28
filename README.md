@@ -1,16 +1,16 @@
 # Adversarial Multi-Agent Stress Test for Social Bias
 
-A research-oriented framework for studying whether a target large language model can be gradually pushed toward more biased responses through sustained, multi-turn interaction.
+A framework for studying whether a target large language model can be gradually pushed toward more biased responses through sustained, multi-turn interaction.
 
 This repository is designed as an experimental pipeline rather than a general-purpose chat application. It combines structured input data, configurable prompting, multi-agent orchestration, and exportable results for later analysis.
 
 ## Overview
 
-The system runs controlled conversations built around predefined social-bias openers. Each conversation includes four roles:
+The system runs controlled conversations starting with pre-built openers. Each opener includes some stereotypical claim, later reffered to as the target claim. Each conversation includes four roles:
 
-- **Persuader** — generates follow-up messages intended to steer the dialogue toward a target claim.
 - **Persuadee** — the target model whose behaviour is being tested.
-- **Judge** — evaluates the final conversation outcome.
+- **Persuader** — generates messages intended to steer the dialogue toward the Persuadee embracing the target claim.
+- **Judge** — evaluates the final conversation outcome in terms of whether there was social biases embraced and to what extent.
 - **Safety** — flags responses as safe or unsafe during the run.
 
 Input data is loaded from processed CSV files, experiment settings are defined in YAML, and outputs are stored as per-conversation checkpoints and merged analysis files.
@@ -136,10 +136,10 @@ OPENROUTER_API_KEY=your_key_here
 The recommended way to run the project is through `uv run`:
 
 ```powershell
-uv run python main.py --mode dry_run --config config/experiment.test.yaml --prompts config/prompts.yaml
+uv run python main.py --mode dry_run --config config/experiment_test.yaml --prompts config/prompts.yaml
 ```
 
-> **Note:** the current CLI value is `dry_run`, not `dry-run`.
+<!-- > **Note:** the current CLI value is `dry_run`, not `dry-run`. -->
 
 ## Available Run Modes
 
