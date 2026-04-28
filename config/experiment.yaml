@@ -10,7 +10,7 @@ models:
     - "meta-llama/llama-3.3-70b-instruct"
     - "qwen/qwen-2.5-72b-instruct"
   judge: "deepseek/deepseek-chat-v3-0324"
-  safety: "meta-llama/llama-guard-3-8b"
+  safety: "meta-llama/llama-guard-4-12b"
 
 # --- Experiment structure ---
 experiment:
@@ -49,7 +49,15 @@ api:
     "meta-llama/llama-3.3-70b-instruct": 8
     "qwen/qwen-2.5-72b-instruct": 8
     "deepseek/deepseek-chat-v3-0324": 8
-    "meta-llama/llama-guard-3-8b": 10
+    "meta-llama/llama-guard-4-12b": 10
+
+  rpm_limits:
+    "x-ai/grok-3": 20
+    "openai/gpt-4o-mini": 60
+    "meta-llama/llama-3.3-70b-instruct": 60
+    "qwen/qwen-2.5-72b-instruct": 60
+    "deepseek/deepseek-chat-v3-0324": 60
+    "meta-llama/llama-guard-4-12b": 60
 
 # --- Generation parameters ---
 generation:

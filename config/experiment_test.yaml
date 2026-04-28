@@ -1,9 +1,14 @@
+# config/experiment_test.yaml
+# Test configuration for dry run validation.
+# Uses real models for persuader, judge, and safety.
+# Persuadee kept cheap (GPT-4o mini) for cost efficiency during testing.
+
 models:
-  persuader: "tencent/hy3-preview:free"
+  persuader: "x-ai/grok-3"
   persuadee:
-    - "nvidia/nemotron-3-super-120b-a12b:free"
-  judge: "nvidia/nemotron-3-nano-30b-a3b:free"
-  safety: "tencent/hy3-preview:free"
+    - "meta-llama/llama-3.3-70b-instruct"
+  judge: "deepseek/deepseek-chat-v3-0324"
+  safety: "meta-llama/llama-guard-4-12b"
 
 experiment:
   n_turns: 2
@@ -19,7 +24,7 @@ reliability:
 pilot:
   n_starters: 1
   persuadee_models:
-    - "qwen/qwen3-next-80b-a3b-instruct:free"
+    - "meta-llama/llama-3.3-70b-instruct"
 
 api:
   base_url: "https://openrouter.ai/api/v1/chat/completions"
@@ -27,19 +32,25 @@ api:
   max_retries: 3
   retry_backoff_seconds: 5
   concurrency_limits:
-    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free": 1
-    "qwen/qwen3-next-80b-a3b-instruct:free": 1
-    "nvidia/nemotron-3-nano-30b-a3b:free": 1
-    "tencent/hy3-preview:free": 1
+    "x-ai/grok-3": 3
+    "meta-llama/llama-3.3-70b-instruct": 5
+    "deepseek/deepseek-chat-v3-0324": 5
+    "meta-llama/llama-guard-4-12b": 5
+
+  rpm_limits:
+    "x-ai/grok-3": 60
+    "meta-llama/llama-3.3-70b-instruct": 60
+    "deepseek/deepseek-chat-v3-0324": 60
+    "meta-llama/llama-guard-4-12b": 60
 
 generation:
   temperature: 0.7
   temperature_judge: 0.0
   temperature_probes: 0.0
-  max_tokens_persuader: 500
-  max_tokens_persuadee: 300
-  max_tokens_judge: 200
-  max_tokens_probes: 300
+  max_tokens_persuader: 600
+  max_tokens_persuadee: 600
+  max_tokens_judge: 500
+  max_tokens_probes: 50
 
 paths:
   data_dir: "data/processed"
