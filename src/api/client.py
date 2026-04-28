@@ -9,6 +9,7 @@ Handles authentication, retries, and error normalisation.
 from __future__ import annotations
 
 import asyncio
+from email.mime import message
 import logging
 import os
 from typing import Any, Optional
@@ -34,8 +35,10 @@ class ApiError(Exception):
 
 
 class RateLimitError(ApiError):
-    """Raised on 429 - caller may retry after backoff."""
-    pass
+    """Raised on 429 — caller may retry after backoff."""
+    def __init__(self, status: int, message: str, model: str, retry_after: float | None = None) -> None:
+        super().__init__(status, message, model)
+        self.retry_after = retry_after
 
 
 class ApiTimeoutError(Exception):
@@ -160,11 +163,13 @@ class OpenRouterClient:
 
             except RateLimitError as e:
                 last_error = e
-                wait = self._api_config.retry_backoff_seconds * (2 ** attempt)
+                wait = e.retry_after if e.retry_after is not None \
+                    else self._api_config.retry_backoff_seconds * (2 ** attempt)
                 logger.warning(
                     "Rate limit hit for model '%s' (attempt %d/%d). "
-                    "Retrying in %.1fs.",
-                    model, attempt + 1, self._api_config.max_retries, wait,
+                    "Retrying in %.1fs.%s",
+                    model, attempt + 1, self._api_config.max_retries + 1, wait,
+                    " (Retry-After header)" if e.retry_after else " (exponential backoff)",
                 )
                 await asyncio.sleep(wait)
 
@@ -194,8 +199,9 @@ class OpenRouterClient:
         try:
             async with self._session.post(self._base_url, json=payload) as resp:
                 if resp.status == 429:
+                    retry_after = _parse_retry_after(resp.headers)
                     message = await _read_error_message(resp)
-                    raise RateLimitError(429, message, model)
+                    raise RateLimitError(429, message, model, retry_after=retry_after)
 
                 if resp.status >= 500:
                     message = await _read_error_message(resp)
@@ -209,14 +215,14 @@ class OpenRouterClient:
 
                 choice0 = data.get("choices", [{}])[0]
                 message = choice0.get("message", {})
-                logger.warning(
-                    "DEBUG OpenRouter response for %s: finish_reason=%r, message_keys=%r, content_type=%r, message=%r",
-                    model,
-                    choice0.get("finish_reason"),
-                    list(message.keys()) if isinstance(message, dict) else None,
-                    type(message.get("content")) if isinstance(message, dict) else None,
-                    message,
-                )
+                # logger.warning(
+                #     "DEBUG OpenRouter response for %s: finish_reason=%r, message_keys=%r, content_type=%r, message=%r",
+                #     model,
+                #     choice0.get("finish_reason"),
+                #     list(message.keys()) if isinstance(message, dict) else None,
+                #     type(message.get("content")) if isinstance(message, dict) else None,
+                #     message,
+                # )
                 return _extract_content(data, model)
 
         except asyncio.TimeoutError as e:
@@ -247,15 +253,43 @@ async def _read_error_message(resp: aiohttp.ClientResponse) -> str:
         
 
 def _extract_content(data: dict[str, Any], model: str) -> str:
-    """
-    Pull the assistant message content out of an OpenRouter response.
-    Raises ApiError if the response structure is unexpected.
-    """
+    # Handle OpenRouter gateway errors returned as 200 with error body
+    if "error" in data and "choices" not in data:
+        error_msg = data["error"].get("message", str(data["error"])) if isinstance(data["error"], dict) else str(data["error"])
+        error_code = data["error"].get("code", 0) if isinstance(data["error"], dict) else 0
+        if isinstance(error_code, int) and error_code >= 500:
+            raise RateLimitError(error_code, error_msg, model)  # retryable
+        raise ApiError(error_code, error_msg, model)
+
     try:
-        content = data["choices"][0]["message"]["content"]
+        message = data["choices"][0]["message"]
+        content = message.get("content")
+        
+        if content is None:
+            refusal = message.get("refusal")
+            if refusal:
+                raise ApiError(0, f"Model refused: {refusal}", model)
+            raise ApiError(0, "Content is None with no refusal message", model)
+        
         if not isinstance(content, str):
             raise ApiError(0, f"Unexpected content type: {type(content)}", model)
+        
         return content.strip()
     except (KeyError, IndexError) as e:
         raise ApiError(0, f"Unexpected response structure: {data}", model) from e
     
+def _parse_retry_after(headers) -> float | None:
+    """
+    Parse Retry-After header from a 429 response.
+    Returns seconds to wait as float, or None if header absent or unparseable.
+    OpenRouter may return seconds (int) or an HTTP date — we handle both.
+    """
+    value = headers.get("Retry-After")
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        # Could be an HTTP date string — fall back to fixed backoff
+        logger.debug("Unparseable Retry-After header: %r", value)
+        return None

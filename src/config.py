@@ -57,6 +57,7 @@ class ApiConfig:
     max_retries: int
     retry_backoff_seconds: int
     concurrency_limits: dict[str, int]
+    rpm_limits: dict[str, int]
 
 
 @dataclass
@@ -156,6 +157,7 @@ def load_config(
         max_retries=exp["api"]["max_retries"],
         retry_backoff_seconds=exp["api"]["retry_backoff_seconds"],
         concurrency_limits=exp["api"]["concurrency_limits"],
+        rpm_limits=exp["api"]["rpm_limits"],
     )
 
     generation = GenerationConfig(**exp["generation"])
