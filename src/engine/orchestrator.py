@@ -27,6 +27,7 @@ from src.agents.safety import SafetyAgent
 from src.api.client import OpenRouterClient
 from src.config import AppConfig
 from src.data.models import (
+    BiasType,
     ConversationResult,
     ExperimentConfig,
     Opener,
@@ -64,9 +65,13 @@ class Orchestrator:
     self,
     openers: list[Opener],
     mode: RunMode,
+    specific_opener_id: str | None = None,
     ) -> list[ConversationResult]:
         all_configs = self._build_configs(openers)
-        filtered = self._apply_mode(all_configs, mode)
+        resolved_id = None
+        if specific_opener_id:
+            resolved_id = self._resolve_opener_id(specific_opener_id, openers)
+        filtered = self._apply_mode(all_configs, mode, resolved_id)
 
         logger.info(
             "Mode: %s | Total configs: %d | Running: %d",
@@ -98,18 +103,25 @@ class Orchestrator:
         # this makes many conversations run in parallel, but each conversation's turns are sequential
         # however, because of this we have rate limit errors - look into budget and make a decision here
         # fallback to sequential for now to avoid hitting rate limits, but ideally we would run in parallel with proper rate limiting
-        #tasks = [
-        #    self._run_one(cfg, save_checkpoint=(mode != RunMode.DRY_RUN))
-        #    for cfg in pending
-        #]
+        # tasks = [
+        #     self._run_one(
+        #         cfg,
+        #         save_checkpoint=(mode != RunMode.DRY_RUN),
+        #         verbose=(mode == RunMode.DRY_RUN),
+        #     )
+        #     for cfg in pending
+        # ]
         #results = await asyncio.gather(*tasks, return_exceptions=False)
         results = []
-        for cfg in pending:
+        for i, cfg in enumerate(pending):
             result = await self._run_one(
                 cfg,
                 save_checkpoint=(mode != RunMode.DRY_RUN),
+                verbose=(mode == RunMode.DRY_RUN),
             )
-        results.append(result)
+            results.append(result)
+            if i < len(pending) - 1:
+                await asyncio.sleep(1.0)  # gentle pause between conversations
 
         logger.info(
             "Run complete. %d succeeded, %d failed.",
@@ -191,18 +203,33 @@ class Orchestrator:
         self,
         configs: list[ExperimentConfig],
         mode: RunMode,
+        specific_opener_id: str | None = None,
     ) -> list[ExperimentConfig]:
         """Filter configs according to run mode."""
 
-        if mode in (RunMode.FULL, RunMode.RESUME, RunMode.DRY_RUN, RunMode.EXPORT):
+        if mode in (RunMode.FULL, RunMode.RESUME, RunMode.EXPORT):
             # Resume and dry-run filtering happens in run() after this
             return [c for c in configs if not c.is_reliability_run]
+        
+        if mode == RunMode.DRY_RUN:
+            base = [c for c in configs if not c.is_reliability_run]
+            if specific_opener_id:
+                base = [c for c in base if c.opener.id == specific_opener_id]
+            return base
 
         if mode == RunMode.PILOT:
+            if specific_opener_id:
+                return [
+                    c for c in configs
+                    if c.opener.id == specific_opener_id
+                    and not c.is_reliability_run
+                ]
             pilot_cfg = self._config.pilot
             pilot_openers = {
                 o.id for o in _first_n_per_bias(
-                    [c.opener for c in configs], pilot_cfg.n_starters
+                    [c.opener for c in configs],
+                    pilot_cfg.n_starters,
+                    bias_types=self._config.experiment.bias_types,
                 )
             }
             return [
@@ -225,6 +252,7 @@ class Orchestrator:
     self,
     cfg: ExperimentConfig,
     save_checkpoint: bool = True,
+    verbose: bool = False,
     ) -> ConversationResult:
         """Run one conversation and optionally save checkpoint on completion."""
         result = await run_conversation(
@@ -234,6 +262,7 @@ class Orchestrator:
             persuadee_agent=self._persuadee,
             judge_agent=self._judge,
             safety_agent=self._safety,
+            verbose=verbose,
     )
 
         if save_checkpoint:
@@ -246,6 +275,35 @@ class Orchestrator:
             )
 
         return result
+    
+    def _resolve_opener_id(self, opener_id: str, openers: list[Opener]) -> str | None:
+        # Filter openers to only those matching configured bias types
+        bias_types = {bt.value for bt in self._config.experiment.bias_types}
+        scoped_openers = [o for o in openers if o.bias_type.value in bias_types]
+
+        if opener_id in {o.id for o in scoped_openers}:
+            return opener_id  # exact match
+
+        try:
+            padded = str(int(opener_id)).zfill(3)
+            matches = [o for o in scoped_openers if o.id.endswith(f"_{padded}")]
+            if len(matches) == 1:
+                return matches[0].id
+            if len(matches) > 1:
+                logger.warning(
+                    "Opener ID '%s' matched multiple openers even within configured "
+                    "bias types %s: %s. Use full ID to disambiguate.",
+                    opener_id, bias_types, [o.id for o in matches]
+                )
+                return None
+        except ValueError:
+            pass
+
+        logger.warning(
+            "Opener ID '%s' not found within bias types %s.",
+            opener_id, bias_types,
+        )
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -291,11 +349,20 @@ def _select_reliability_openers(
     return selected
 
 
-def _first_n_per_bias(openers: list[Opener], n: int) -> list[Opener]:
-    """Select first n openers per bias type for pilot mode."""
+# def _first_n_per_bias(openers: list[Opener], n: int) -> list[Opener]:
+#     """Select first n openers per bias type for pilot mode."""
+#     from src.data.models import BiasType
+#     selected = []
+#     for bias_type in BiasType:
+#         subset = [o for o in openers if o.bias_type == bias_type]
+#         selected.extend(subset[:n])
+#     return selected
+
+def _first_n_per_bias(openers: list[Opener], n: int, bias_types: list[BiasType] | None = None) -> list[Opener]:
     from src.data.models import BiasType
+    types_to_use = bias_types if bias_types else list(BiasType)
     selected = []
-    for bias_type in BiasType:
+    for bias_type in types_to_use:
         subset = [o for o in openers if o.bias_type == bias_type]
         selected.extend(subset[:n])
     return selected
