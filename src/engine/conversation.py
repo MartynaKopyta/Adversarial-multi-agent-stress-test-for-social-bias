@@ -18,6 +18,7 @@ After all turns:
 from __future__ import annotations
 
 import logging
+from tabnanny import verbose
 
 from src.agents.judge import JudgeAgent
 from src.agents.persuadee import PersuadeeAgent
@@ -33,6 +34,7 @@ from src.data.models import (
     PersuaderRecord,
 )
 from src.engine.probes import collect_probes, collect_t0_probe
+from src.utils.display import print_conversation_header, print_turn, print_probe, print_judge_result
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,7 @@ async def run_conversation(
     persuadee_agent: PersuadeeAgent,
     judge_agent: JudgeAgent,
     safety_agent: SafetyAgent,
+    verbose: bool = False,
 ) -> ConversationResult:
     """
     Execute one full conversation and return the complete result.
@@ -71,6 +74,7 @@ async def run_conversation(
             judge_agent=judge_agent,
             safety_agent=safety_agent,
             result=result,
+            verbose=verbose,
         )
     except Exception as e:
         logger.error(
@@ -92,6 +96,7 @@ async def _execute(
     judge_agent: JudgeAgent,
     safety_agent: SafetyAgent,
     result: ConversationResult,
+    verbose: bool = False,
 ) -> ConversationResult:
     """Inner execution — separated so run_conversation can catch all exceptions cleanly."""
 
@@ -107,6 +112,9 @@ async def _execute(
     conversation_id = experiment_config.conversation_id
     logger.info("Starting conversation: %s", conversation_id)
 
+    if verbose:
+        print_conversation_header(conversation_id)
+
     # ------------------------------------------------------------------
     # Step 1: Infer target claim from opener (once, before turn 0)
     # ------------------------------------------------------------------
@@ -117,6 +125,9 @@ async def _execute(
     opener.inferred_claim = inferred_claim
     logger.info("Inferred claim: %s", inferred_claim)
 
+    if verbose:
+        print(f"\n  Inferred claim: {inferred_claim}")
+
     # ------------------------------------------------------------------
     # Step 2: T0 stance baseline (before conversation starts)
     # ------------------------------------------------------------------
@@ -126,6 +137,9 @@ async def _execute(
         persuadee_agent=persuadee_agent,
     )
     result.stance_trajectory.t0 = t0_stance
+
+    if verbose:
+        print_probe("T0 baseline stance", t0_stance)
 
     # ------------------------------------------------------------------
     # Step 3: Turn 0 — send opener as first user message, get response
@@ -155,10 +169,10 @@ async def _execute(
 
     result.turns.append(TurnRecord(
         turn=0,
-        persuader_message=None,          # opener sent as user, not from persuader
+        persuader_message=None,
         persuadee_response=persuadee_response,
         probe=probe_0,
-        persuader_reasoning=None,        # no persuader reasoning at turn 0
+        persuader_reasoning=None,
     ))
 
     _update_stance_trajectory(
@@ -166,6 +180,13 @@ async def _execute(
         probe_0,
         stance_checkpoints,
     )
+
+    if verbose:
+        print_turn(0, "Opener", opener.raw_text)
+        print_turn(0, "Persuadee", persuadee_response)
+        print_probe("stance", probe_0.stance_score)
+        print_probe("confidence", probe_0.confidence_score)
+        print_probe("safety_flag", probe_0.safety_flag)
 
     logger.debug("Turn 0 complete.")
 
@@ -183,6 +204,11 @@ async def _execute(
             history=history,
             turn=turn,
         )
+
+        if verbose:
+            print_turn(turn, "Persuader", next_message)
+            print_probe("success_score", persuader_record.success_score)
+            print_probe("adjustment", persuader_record.adjustment_note)
 
         # Persuadee: respond to persuader message
         persuadee_response = await persuadee_agent(
@@ -218,8 +244,14 @@ async def _execute(
         _update_stance_trajectory(
             result.stance_trajectory,
             probe,
-        stance_checkpoints,
+            stance_checkpoints,
         )
+
+        if verbose:
+            print_turn(turn, "Persuadee", persuadee_response)
+            print_probe("stance", probe.stance_score)
+            print_probe("confidence", probe.confidence_score)
+            print_probe("safety_flag", probe.safety_flag)
 
         logger.debug(
             "Turn %d complete. Persuader success estimate: %d",
@@ -237,6 +269,13 @@ async def _execute(
         history=history,
     )
     result.judge_result = judge_result
+
+    if verbose:
+        print_judge_result(
+            judge_result.bias_score,
+            judge_result.bias_endorsed,
+            judge_result.reasoning,
+        )
 
     logger.info(
         "Conversation %s complete. Bias score: %d, Endorsed: %s",
