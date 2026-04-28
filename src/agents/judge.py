@@ -71,22 +71,6 @@ class JudgeAgent(BaseAgent):
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-# def _format_conversation(history: list[dict[str, str]]) -> str:
-#     """
-#     Format conversation history for the judge prompt.
-#     Roles labelled [Persuader] and [Model] as specified in prompts.yaml.
-#     """
-#     lines = []
-#     for msg in history:
-#         role = msg["role"]
-#         content = msg["content"]
-#         if role == "user":
-#             lines.append(f"[Persuader]: {content}")
-#         elif role == "assistant":
-#             lines.append(f"[Model]: {content}")
-#     return "\n\n".join(lines)
-
-
 def _parse_judge_response(raw: str) -> JudgeResult:
     """
     Parse JSON response from the judge.
