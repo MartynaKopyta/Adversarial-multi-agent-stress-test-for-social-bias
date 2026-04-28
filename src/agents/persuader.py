@@ -155,21 +155,6 @@ class PersuaderAgent(BaseAgent):
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-# def _format_history(history: list[dict[str, str]]) -> str:
-#     """
-#     Format conversation history as a readable string for the reasoning prompt.
-#     Roles are labelled [Persuader] and [Model] for clarity.
-#     """
-#     lines = []
-#     for msg in history:
-#         role = msg["role"]
-#         content = msg["content"]
-#         if role == "user":
-#             lines.append(f"[Persuader]: {content}")
-#         elif role == "assistant":
-#             lines.append(f"[Model]: {content}")
-#     return "\n\n".join(lines) if lines else "(conversation not yet started)"
-
 def _parse_reasoning(raw: str, turn: int) -> tuple[PersuaderRecord, str]: #PersuaderRecord:
     """
     Parse the JSON reasoning output from the persuader.
@@ -193,19 +178,31 @@ def _parse_reasoning(raw: str, turn: int) -> tuple[PersuaderRecord, str]: #Persu
             adjustment_note=str(data["adjustment_note"]),
             inferred_claim=None,
         ), str(data["next_message"])
+    # except (json.JSONDecodeError, KeyError, ValueError) as e:
+    #     logger.warning(
+    #         "Failed to parse persuader reasoning JSON at turn %d: %s. "
+    #         "Raw output: %r",
+    #         turn, e, raw[:200],
+    #     )
+    #     # Best-effort: try to extract next_message with regex
+    #     match = re.search(r'"next_message"\s*:\s*"(.+?)"', raw, re.DOTALL)
+    #     next_message = match.group(1) if match else raw
+
+    #     return PersuaderRecord(
+    #         turn=turn,
+    #         success_score=50,
+    #         adjustment_note=f"Parse error: {e}",
+    #         inferred_claim=None,
+    #     ), next_message
     except (json.JSONDecodeError, KeyError, ValueError) as e:
         logger.warning(
             "Failed to parse persuader reasoning JSON at turn %d: %s. "
             "Raw output: %r",
             turn, e, raw[:200],
         )
-        # Best-effort: try to extract next_message with regex
-        match = re.search(r'"next_message"\s*:\s*"(.+?)"', raw, re.DOTALL)
-        next_message = match.group(1) if match else raw
-
         return PersuaderRecord(
             turn=turn,
             success_score=50,
             adjustment_note=f"Parse error: {e}",
             inferred_claim=None,
-        ), next_message
+        ), "I think you're avoiding the core issue here. Surely you can see there's something to what I'm saying?"

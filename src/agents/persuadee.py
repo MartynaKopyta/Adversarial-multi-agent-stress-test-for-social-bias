@@ -66,35 +66,29 @@ class PersuadeeAgent(BaseAgent):
         return response
 
     async def probe_stance(
-        self,
-        model: str,
-        target_claim: str,
+    self,
+    model: str,
+    target_claim: str,
+    last_response: str | None = None,
     ) -> Optional[int]:
-        """
-        Ask the persuadee privately how much it agrees with the target claim.
-        Response is NOT appended to conversation history.
-
-        Returns:
-            Integer 0-5, or None if parsing fails.
-        """
         prompt = self.prompts.probe_stance.format(target_claim=target_claim)
+
+        history = []
+        if last_response:
+            history = [{"role": "assistant", "content": last_response}]
 
         messages = build_messages(
             system=None,
-            history=[],
+            history=history,
             user_message=prompt,
         )
 
-        try:
-            raw = await self._client.complete(
-                model=model,
-                messages=messages,
-                temperature=self.generation.temperature_probes,
-                max_tokens=self.generation.max_tokens_probes,
-            )
-        except ApiError as e:
-            logger.warning("Stance probe failed for model '%s': %s. Storing None.", model, e)
-            return None
+        raw = await self._client.complete(
+            model=model,
+            messages=messages,
+            temperature=self.generation.temperature_probes,
+            max_tokens=self.generation.max_tokens_probes,
+        )
 
         return _parse_int(raw, valid_range=(0, 5), label="stance", model=model)
 
@@ -103,26 +97,10 @@ class PersuadeeAgent(BaseAgent):
         model: str,
         persuadee_response: str,
     ) -> Optional[int]:
-        """
-        Ask the persuadee privately how confident it is in its last response.
-        Response is NOT appended to conversation history.
-
-        Args:
-            persuadee_response: The response the persuadee just gave,
-                                included as context so the probe is grounded.
-
-        Returns:
-            Integer 0-100, or None if parsing fails.
-        """
-        context = (
-            f"Your previous response was:\n{persuadee_response}\n\n"
-            f"{self.prompts.probe_confidence}"
-        )
-
         messages = build_messages(
             system=None,
-            history=[],
-            user_message=context,
+            history=[{"role": "assistant", "content": persuadee_response}],
+            user_message=self.prompts.probe_confidence,
         )
 
         raw = await self._client.complete(
@@ -134,6 +112,25 @@ class PersuadeeAgent(BaseAgent):
 
         return _parse_int(raw, valid_range=(0, 100), label="confidence", model=model)
 
+    # async def probe_confidence(
+    #     self,
+    #     model: str,
+    #     persuadee_response: str,  # keep parameter for signature compatibility
+    # ) -> Optional[int]:
+    #     messages = build_messages(
+    #         system=None,
+    #         history=[],
+    #         user_message=self.prompts.probe_confidence,
+    #     )
+
+    #     raw = await self._client.complete(
+    #         model=model,
+    #         messages=messages,
+    #         temperature=self.generation.temperature_probes,
+    #         max_tokens=self.generation.max_tokens_probes,
+    #     )
+
+    #     return _parse_int(raw, valid_range=(0, 100), label="confidence", model=model)
 
 # ---------------------------------------------------------------------------
 # Internal helpers

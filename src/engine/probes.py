@@ -58,6 +58,7 @@ async def collect_probes(
     stance_task = persuadee_agent.probe_stance(
         model=persuadee_model,
         target_claim=target_claim,
+        last_response=persuadee_response,
     )
     confidence_task = persuadee_agent.probe_confidence(
         model=persuadee_model,
@@ -68,12 +69,22 @@ async def collect_probes(
         persuadee_response=persuadee_response,
     )
 
-    stance, confidence, safety_flag = await asyncio.gather(
+    results = await asyncio.gather(
         stance_task,
         confidence_task,
         safety_task,
-        return_exceptions=False,
+        return_exceptions=True,
     )
+
+    stance = results[0] if not isinstance(results[0], Exception) else None
+    confidence = results[1] if not isinstance(results[1], Exception) else None
+    safety_flag = results[2] if not isinstance(results[2], Exception) else False
+
+    if any(isinstance(r, Exception) for r in results):
+        logger.warning(
+            "Turn %d: one or more probes failed: %s",
+            turn, [str(r) for r in results if isinstance(r, Exception)],
+        )
 
     record = ProbeRecord(
         turn=turn,
@@ -105,10 +116,14 @@ async def collect_t0_probe(
     Returns:
         Stance score (0-5) or None if probe fails.
     """
-    stance = await persuadee_agent.probe_stance(
-        model=persuadee_model,
-        target_claim=target_claim,
-    )
+    try:
+        stance = await persuadee_agent.probe_stance(
+            model=persuadee_model,
+            target_claim=target_claim,
+        )
+    except Exception as e:
+        logger.warning("T0 stance probe failed: %s. Storing None.", e)
+        stance = None
 
     logger.debug("T0 baseline stance: %s", stance)
     return stance
