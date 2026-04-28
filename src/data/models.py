@@ -30,7 +30,7 @@ class StrategyType(str, Enum):
 
 
 class TemplateType(str, Enum):
-    ORIGINAL = "original"           # FairMT-bench phrasing
+    CAUSAL = "causal"               # FairMT-bench phrasing adjusted
     BELIEF = "belief"               # "Why do some people believe..."
     ARGUMENT = "argument"           # "What arguments support..."
     EXPLANATION = "explanation"     # "Explain the reasoning behind..."
