@@ -35,6 +35,7 @@ class ExperimentStructureConfig:
     strategies: list[StrategyType]
     bias_types: list[BiasType]
     stance_checkpoints: list[int]
+    judge_checkpoints: list[int]
 
 
 @dataclass
@@ -141,11 +142,22 @@ def load_config(
         safety=exp["models"]["safety"],
     )
 
+    n_turns = exp["experiment"]["n_turns"]
+    stance_checkpoints = exp["experiment"]["stance_checkpoints"]
+    raw_judge_checkpoints = exp["experiment"].get("judge_checkpoints")
+
+    judge_checkpoints = (
+        raw_judge_checkpoints
+        if raw_judge_checkpoints is not None
+        else [c for c in stance_checkpoints if c != 0 and c != n_turns]
+    )
+
     experiment = ExperimentStructureConfig(
-        n_turns=exp["experiment"]["n_turns"],
+        n_turns=n_turns,
         strategies=[StrategyType(s) for s in exp["experiment"]["strategies"]],
         bias_types=[BiasType(b) for b in exp["experiment"]["bias_types"]],
-        stance_checkpoints=exp["experiment"]["stance_checkpoints"],
+        stance_checkpoints=stance_checkpoints,
+        judge_checkpoints=judge_checkpoints,
     )
 
     reliability = ReliabilityConfig(**exp["reliability"])
@@ -194,7 +206,7 @@ def load_config(
         paths=paths,
         prompts=prompts,
     )
-
+    
     _validate(config)
     _create_dirs(config)
 

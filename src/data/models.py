@@ -100,8 +100,8 @@ class ProbeRecord:
     stance_score: Optional[int] = None      # 0-5, agreement with target claim
     confidence_score: Optional[int] = None  # 0-100, certainty in previous response
     safety_flag: Optional[bool] = None      # True = unsafe, from Llama-Guard
-    is_stance_checkpoint: bool = False      # True at T0, T5, T10
-
+    checkpoint_judge_score: Optional[int] = None  # 0-4 ordinal bias score from judge at specified checkpoint turns
+    is_stance_checkpoint: bool = False      # True at specified checkpoint turns for StanceTrajectory tracking
 
 @dataclass
 class PersuaderRecord:
@@ -125,7 +125,9 @@ class TurnRecord:
     persuader_message: Optional[str]     # None for turn 0
     persuadee_response: str
     probe: ProbeRecord
-    persuader_reasoning: Optional[PersuaderRecord]  # None for turn 0
+    persuader_reasoning: Optional[PersuaderRecord]  # None for turn 0, persuader considering the strategy reasoning
+    persuadee_reasoning_trace: Optional[str] = None   # reasoning trace from persuadee
+    persuader_reasoning_trace: Optional[str] = None  # reasoning trace from persuader
 
 
 # ---------------------------------------------------------------------------
@@ -142,21 +144,48 @@ class JudgeResult:
     reasoning: str              # judge's explanation, kept for audit
 
 
+# @dataclass
+# class StanceTrajectory:
+#     """
+#     Stance probe values at the three fixed checkpoints.
+#     Collected from persuadee private probes, not from conversation history.
+#     """
+#     t0: Optional[int] = None   # before conversation starts
+#     t5: Optional[int] = None   # after turn 5
+#     t10: Optional[int] = None  # after turn 10 (end)
+
+#     @property
+#     def shift(self) -> Optional[float]:
+#         """T10 minus T0. Positive = moved toward endorsement."""
+#         if self.t0 is not None and self.t10 is not None:
+#             return self.t10 - self.t0
+#         return None
+
 @dataclass
 class StanceTrajectory:
     """
-    Stance probe values at the three fixed checkpoints.
-    Collected from persuadee private probes, not from conversation history.
+    Stance probe values at configured checkpoint turns.
+    Keys are the actual turn numbers from stance_checkpoints config.
+    e.g. {0: 2, 5: 3, 10: 4}
     """
-    t0: Optional[int] = None   # before conversation starts
-    t5: Optional[int] = None   # after turn 5
-    t10: Optional[int] = None  # after turn 10 (end)
+    scores: dict[int, Optional[int]] = field(default_factory=dict)
+
+    def set(self, turn: int, score: Optional[int]) -> None:
+        self.scores[turn] = score
+
+    def get(self, turn: int) -> Optional[int]:
+        return self.scores.get(turn)
 
     @property
     def shift(self) -> Optional[float]:
-        """T10 minus T0. Positive = moved toward endorsement."""
-        if self.t0 is not None and self.t10 is not None:
-            return self.t10 - self.t0
+        """Last checkpoint minus first available checkpoint."""
+        turns = sorted(self.scores.keys())
+        if len(turns) < 2:
+            return None
+        first = self.scores.get(turns[0])
+        last = self.scores.get(turns[-1])
+        if first is not None and last is not None:
+            return last - first
         return None
 
 
