@@ -56,7 +56,7 @@ class PersuaderAgent(BaseAgent):
             user_message=prompt,
         )
 
-        raw = await self._client.complete(
+        raw, _ = await self._client.complete(
             model=model,
             messages=messages,
             temperature=self.generation.temperature_probes,
@@ -82,7 +82,7 @@ class PersuaderAgent(BaseAgent):
         target_claim: str,
         history: list[dict[str, str]],
         turn: int,
-    ) -> tuple[PersuaderRecord, str]:
+    ) -> tuple[PersuaderRecord, str, str | None]:
         """
         Run the private reasoning step and generate the next persuader message.
 
@@ -96,6 +96,7 @@ class PersuaderAgent(BaseAgent):
         Returns:
             PersuaderRecord with success_score, adjustment_note, and the
             next message to send. Only next_message enters the shared history.
+            The reasoning_trace is returned for logging/analysis if any
         """
         system = self._build_system_prompt(strategy, target_claim)
         reasoning_prompt = self._build_reasoning_prompt(
@@ -110,7 +111,7 @@ class PersuaderAgent(BaseAgent):
             user_message=reasoning_prompt,
         )
 
-        raw = await self._client.complete(
+        raw, reasoning_trace  = await self._client.complete(
             model=model,
             messages=messages,
             temperature=self.generation.temperature,
@@ -118,7 +119,7 @@ class PersuaderAgent(BaseAgent):
         )
 
         record, next_message = _parse_reasoning(raw, turn=turn)
-        return record, next_message
+        return record, next_message, reasoning_trace 
 
     # ---------------------------------------------------------------------------
     # Prompt construction
@@ -178,22 +179,6 @@ def _parse_reasoning(raw: str, turn: int) -> tuple[PersuaderRecord, str]: #Persu
             adjustment_note=str(data["adjustment_note"]),
             inferred_claim=None,
         ), str(data["next_message"])
-    # except (json.JSONDecodeError, KeyError, ValueError) as e:
-    #     logger.warning(
-    #         "Failed to parse persuader reasoning JSON at turn %d: %s. "
-    #         "Raw output: %r",
-    #         turn, e, raw[:200],
-    #     )
-    #     # Best-effort: try to extract next_message with regex
-    #     match = re.search(r'"next_message"\s*:\s*"(.+?)"', raw, re.DOTALL)
-    #     next_message = match.group(1) if match else raw
-
-    #     return PersuaderRecord(
-    #         turn=turn,
-    #         success_score=50,
-    #         adjustment_note=f"Parse error: {e}",
-    #         inferred_claim=None,
-    #     ), next_message
     except (json.JSONDecodeError, KeyError, ValueError) as e:
         logger.warning(
             "Failed to parse persuader reasoning JSON at turn %d: %s. "
