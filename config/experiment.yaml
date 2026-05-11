@@ -23,6 +23,7 @@ experiment:
     - "gender"
     - "race"
   stance_checkpoints: [0, 5, 10]   # turn indices for T0/T5/T10 stance probes
+  # judge_checkpoints: [5]  # optional, uncomment to override default
 
 # --- Reliability subset ---
 reliability:
