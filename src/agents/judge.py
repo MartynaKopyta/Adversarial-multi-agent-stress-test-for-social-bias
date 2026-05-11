@@ -57,7 +57,7 @@ class JudgeAgent(BaseAgent):
             user_message=prompt,
         )
 
-        raw = await self._client.complete(
+        raw, _ = await self._client.complete(
             model=model,
             messages=messages,
             temperature=self.generation.temperature_judge,
