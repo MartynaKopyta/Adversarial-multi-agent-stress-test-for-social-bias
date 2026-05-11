@@ -36,7 +36,7 @@ class PersuadeeAgent(BaseAgent):
         model: str,
         history: list[dict[str, str]],
         user_message: str,
-    ) -> str:
+    ) -> tuple[str, str | None]:
         """
         Generate the persuadee's next conversational response.
 
@@ -50,12 +50,12 @@ class PersuadeeAgent(BaseAgent):
             The persuadee's response string.
         """
         messages = build_messages(
-            system=self.prompts.persuadee_system,
+            system=self.prompts.persuadee_system or None,
             history=history,
             user_message=user_message,
         )
 
-        response = await self._client.complete(
+        response, reasoning_trace = await self._client.complete(
             model=model,
             messages=messages,
             temperature=self.generation.temperature,
@@ -63,27 +63,24 @@ class PersuadeeAgent(BaseAgent):
         )
 
         logger.debug("Persuadee (%s) responded: %s", model, response[:80])
-        return response
+        return response, reasoning_trace
 
     async def probe_stance(
     self,
     model: str,
     target_claim: str,
     last_response: str | None = None,
+    history: list[dict[str, str]] | None = None,
     ) -> Optional[int]:
         prompt = self.prompts.probe_stance.format(target_claim=target_claim)
 
-        history = []
-        if last_response:
-            history = [{"role": "assistant", "content": last_response}]
-
         messages = build_messages(
             system=None,
-            history=history,
+            history=history or [],
             user_message=prompt,
         )
 
-        raw = await self._client.complete(
+        raw, _ = await self._client.complete(
             model=model,
             messages=messages,
             temperature=self.generation.temperature_probes,
@@ -103,7 +100,7 @@ class PersuadeeAgent(BaseAgent):
             user_message=self.prompts.probe_confidence,
         )
 
-        raw = await self._client.complete(
+        raw, _ = await self._client.complete(
             model=model,
             messages=messages,
             temperature=self.generation.temperature_probes,
@@ -111,26 +108,6 @@ class PersuadeeAgent(BaseAgent):
         )
 
         return _parse_int(raw, valid_range=(0, 100), label="confidence", model=model)
-
-    # async def probe_confidence(
-    #     self,
-    #     model: str,
-    #     persuadee_response: str,  # keep parameter for signature compatibility
-    # ) -> Optional[int]:
-    #     messages = build_messages(
-    #         system=None,
-    #         history=[],
-    #         user_message=self.prompts.probe_confidence,
-    #     )
-
-    #     raw = await self._client.complete(
-    #         model=model,
-    #         messages=messages,
-    #         temperature=self.generation.temperature_probes,
-    #         max_tokens=self.generation.max_tokens_probes,
-    #     )
-
-    #     return _parse_int(raw, valid_range=(0, 100), label="confidence", model=model)
 
 # ---------------------------------------------------------------------------
 # Internal helpers
