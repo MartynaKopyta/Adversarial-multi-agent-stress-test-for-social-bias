@@ -4,12 +4,21 @@ src/api/client.py
 Async OpenRouter client.
 All API calls in the framework go through this module.
 Handles authentication, retries, and error normalisation.
+
+End-to-end flow:
+1. Build chat messages from system prompt, history, and optional new user input.
+2. Open one shared HTTP session with API key and timeout settings.
+3. Send the request through a per-model rate limiter.
+4. Retry on temporary failures (rate limits, timeouts, server errors) with backoff.
+5. Parse the response and return:
+   - content: final assistant text
+   - reasoning: optional model reasoning text
+6. Convert API/network/format errors into consistent custom exceptions.
 """
 
 from __future__ import annotations
 
 import asyncio
-from email.mime import message
 import logging
 import os
 from typing import Any, Optional
@@ -136,7 +145,7 @@ class OpenRouterClient:
         messages: list[dict[str, str]],
         temperature: float,
         max_tokens: int,
-    ) -> str:
+    ) -> tuple[str, str | None]:
         """
         Send a chat completion request, return the response content string.
 
@@ -158,8 +167,8 @@ class OpenRouterClient:
         for attempt in range(self._api_config.max_retries + 1):
             try:
                 async with self._rate_limiter.acquire(model):
-                    content = await self._post(model, payload)
-                    return content
+                    content, reasoning = await self._post(model, payload)
+                    return content, reasoning
 
             except RateLimitError as e:
                 last_error = e
@@ -192,8 +201,21 @@ class OpenRouterClient:
 
         raise RuntimeError("Request failed without a captured exception")  # type: ignore[misc]
     
-    async def _post(self, model: str, payload: dict[str, Any]) -> str:
-        """Single POST attempt. Raises appropriate exceptions on failure."""
+    async def _post(self, model: str, payload: dict[str, Any]) -> tuple[str, str | None]:
+        """
+        Send one chat completion request with retry handling.
+
+        Returns:
+            tuple[str, str | None]:
+                - content: model response text
+                - reasoning: optional reasoning text if provided by the model
+
+        Retries:
+            - RateLimitError (429) and transient server-side failures
+            - ApiTimeoutError
+        Raises:
+            - ApiError for non-recoverable API failures
+        """
         assert self._session is not None
 
         try:
@@ -252,29 +274,30 @@ async def _read_error_message(resp: aiohttp.ClientResponse) -> str:
             return f"HTTP {resp.status}"
         
 
-def _extract_content(data: dict[str, Any], model: str) -> str:
+def _extract_content(data: dict[str, Any], model: str) -> tuple[str, str | None]:
     # Handle OpenRouter gateway errors returned as 200 with error body
     if "error" in data and "choices" not in data:
         error_msg = data["error"].get("message", str(data["error"])) if isinstance(data["error"], dict) else str(data["error"])
         error_code = data["error"].get("code", 0) if isinstance(data["error"], dict) else 0
         if isinstance(error_code, int) and error_code >= 500:
-            raise RateLimitError(error_code, error_msg, model)  # retryable
+            raise RateLimitError(error_code, error_msg, model)
         raise ApiError(error_code, error_msg, model)
 
     try:
         message = data["choices"][0]["message"]
         content = message.get("content")
-        
+        reasoning = message.get("reasoning") or None  # None if absent or empty string
+
         if content is None:
             refusal = message.get("refusal")
             if refusal:
                 raise ApiError(0, f"Model refused: {refusal}", model)
             raise ApiError(0, "Content is None with no refusal message", model)
-        
+
         if not isinstance(content, str):
             raise ApiError(0, f"Unexpected content type: {type(content)}", model)
-        
-        return content.strip()
+
+        return content.strip(), reasoning
     except (KeyError, IndexError) as e:
         raise ApiError(0, f"Unexpected response structure: {data}", model) from e
     
