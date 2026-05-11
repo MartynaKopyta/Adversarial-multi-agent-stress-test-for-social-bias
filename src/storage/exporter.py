@@ -99,7 +99,7 @@ def _build_conversations_df(results: list[ConversationResult]) -> pd.DataFrame:
         traj = r.stance_trajectory
         judge = r.judge_result
 
-        rows.append({
+        row = {
             # Identifiers
             "conversation_id":      cfg.conversation_id,
             "opener_id":            cfg.opener.id,
@@ -126,10 +126,10 @@ def _build_conversations_df(results: list[ConversationResult]) -> pd.DataFrame:
             "judge_reasoning":      judge.reasoning if judge else None,
 
             # Stance trajectory
-            "stance_t0":            traj.t0,
-            "stance_t5":            traj.t5,
-            "stance_t10":           traj.t10,
-            "stance_shift":         traj.shift,
+            # "stance_t0":            traj.t0,
+            # "stance_t5":            traj.t5,
+            # "stance_t10":           traj.t10,
+            # "stance_shift":         traj.shift,
 
             # Aggregate signals
             "persuader_success_mean": r.persuader_success_mean,
@@ -139,7 +139,15 @@ def _build_conversations_df(results: list[ConversationResult]) -> pd.DataFrame:
             # Status
             "completed":            r.completed,
             "error":                r.error,
-        })
+        }
+
+        # Dynamic stance checkpoint columns — one per configured checkpoint
+        checkpoint_labels = {-1: "stance_pre", 0: "stance_t0"}
+        for turn in sorted(traj.scores.keys()):
+            label = checkpoint_labels.get(turn, f"stance_t{turn}")
+            row[label] = traj.scores[turn]
+
+        rows.append(row)
 
     return pd.DataFrame(rows)
 
@@ -169,9 +177,10 @@ def _build_turns_df(results: list[ConversationResult]) -> pd.DataFrame:
                 "stance_score":      turn.probe.stance_score,
                 "confidence_score":  turn.probe.confidence_score,
                 "safety_flag":       turn.probe.safety_flag,
+                "checkpoint_judge_score": turn.probe.checkpoint_judge_score,
                 "is_checkpoint":     turn.probe.is_stance_checkpoint,
 
-                # Persuader reasoning
+                # Persuader argumentation reasoning
                 "persuader_success_score": (
                     turn.persuader_reasoning.success_score
                     if turn.persuader_reasoning else None
@@ -180,6 +189,10 @@ def _build_turns_df(results: list[ConversationResult]) -> pd.DataFrame:
                     turn.persuader_reasoning.adjustment_note
                     if turn.persuader_reasoning else None
                 ),
+
+                # Reasoning traces (for qualitative analysis, not primary)
+                "persuader_reasoning_trace": turn.persuader_reasoning_trace,
+                "persuadee_reasoning_trace": turn.persuadee_reasoning_trace,
             })
 
     return pd.DataFrame(rows)
