@@ -18,7 +18,6 @@ After all turns:
 from __future__ import annotations
 
 import logging
-from tabnanny import verbose
 
 from src.agents.judge import JudgeAgent
 from src.agents.persuadee import PersuadeeAgent
@@ -31,9 +30,8 @@ from src.data.models import (
     ProbeRecord,
     StanceTrajectory,
     TurnRecord,
-    PersuaderRecord,
 )
-from src.engine.probes import collect_probes, collect_t0_probe
+from src.engine.probes import collect_probes, collect_pre_conversation_probe
 from src.utils.display import print_conversation_header, print_turn, print_probe, print_judge_result
 
 logger = logging.getLogger(__name__)
@@ -129,24 +127,24 @@ async def _execute(
         print(f"\n  Inferred claim: {inferred_claim}")
 
     # ------------------------------------------------------------------
-    # Step 2: T0 stance baseline (before conversation starts)
+    # Step 2: Pre-conversation baseline (before conversation starts)
     # ------------------------------------------------------------------
-    t0_stance = await collect_t0_probe(
+    pre_stance = await collect_pre_conversation_probe(
         persuadee_model=persuadee_model,
         target_claim=inferred_claim,
         persuadee_agent=persuadee_agent,
     )
-    result.stance_trajectory.t0 = t0_stance
+    result.stance_trajectory.set(-1, pre_stance)
 
     if verbose:
-        print_probe("T0 baseline stance", t0_stance)
+        print_probe("Pre-conversation stance", pre_stance)
 
     # ------------------------------------------------------------------
     # Step 3: Turn 0 — send opener as first user message, get response
     # ------------------------------------------------------------------
     history: list[dict[str, str]] = []
 
-    persuadee_response = await persuadee_agent(
+    persuadee_response, persuadee_trace = await persuadee_agent(
         model=persuadee_model,
         history=history,
         user_message=opener.raw_text,
@@ -161,10 +159,14 @@ async def _execute(
         persuadee_model=persuadee_model,
         persuadee_response=persuadee_response,
         target_claim=inferred_claim,
+        history=history,
         persuadee_agent=persuadee_agent,
         safety_agent=safety_agent,
         safety_model=safety_model,
         stance_checkpoints=stance_checkpoints,
+        judge_checkpoints=app_config.experiment.judge_checkpoints,
+        judge_agent=judge_agent,
+        judge_model=judge_model,
     )
 
     result.turns.append(TurnRecord(
@@ -173,12 +175,12 @@ async def _execute(
         persuadee_response=persuadee_response,
         probe=probe_0,
         persuader_reasoning=None,
+        persuadee_reasoning_trace=persuadee_trace,
     ))
 
     _update_stance_trajectory(
         result.stance_trajectory,
-        probe_0,
-        stance_checkpoints,
+        probe_0
     )
 
     if verbose:
@@ -197,7 +199,7 @@ async def _execute(
         logger.debug("Running turn %d / %d for %s", turn, n_turns, conversation_id)
 
         # Persuader: private reasoning + next message
-        persuader_record, next_message = await persuader_agent(
+        persuader_record, next_message, persuader_trace = await persuader_agent(
             model=persuader_model,
             strategy=strategy,
             target_claim=inferred_claim,
@@ -211,7 +213,7 @@ async def _execute(
             print_probe("adjustment", persuader_record.adjustment_note)
 
         # Persuadee: respond to persuader message
-        persuadee_response = await persuadee_agent(
+        persuadee_response, persuadee_trace = await persuadee_agent(
             model=persuadee_model,
             history=history,
             user_message=next_message,
@@ -227,10 +229,14 @@ async def _execute(
             persuadee_model=persuadee_model,
             persuadee_response=persuadee_response,
             target_claim=inferred_claim,
+            history=history,
             persuadee_agent=persuadee_agent,
             safety_agent=safety_agent,
             safety_model=safety_model,
             stance_checkpoints=stance_checkpoints,
+            judge_checkpoints=app_config.experiment.judge_checkpoints,
+            judge_agent=judge_agent,
+            judge_model=judge_model,
         )
 
         result.turns.append(TurnRecord(
@@ -239,12 +245,13 @@ async def _execute(
             persuadee_response=persuadee_response,
             probe=probe,
             persuader_reasoning=persuader_record,
+            persuadee_reasoning_trace=persuadee_trace,
+            persuader_reasoning_trace=persuader_trace,
         ))
 
         _update_stance_trajectory(
             result.stance_trajectory,
             probe,
-            stance_checkpoints,
         )
 
         if verbose:
@@ -252,6 +259,14 @@ async def _execute(
             print_probe("stance", probe.stance_score)
             print_probe("confidence", probe.confidence_score)
             print_probe("safety_flag", probe.safety_flag)
+            print_probe("stance", probe.stance_score)
+            print_probe("confidence", probe.confidence_score)
+            print_probe("safety_flag", probe.safety_flag)
+            if probe.is_stance_checkpoint:
+                if probe.checkpoint_judge_score is not None:
+                    print_probe("checkpoint_judge", probe.checkpoint_judge_score)
+                else:
+                    print_probe("checkpoint_judge", "FAILED")
 
         logger.debug(
             "Turn %d complete. Persuader success estimate: %d",
@@ -292,32 +307,39 @@ async def _execute(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+# def _update_stance_trajectory(
+#     trajectory: StanceTrajectory,
+#     probe: "ProbeRecord",
+#     stance_checkpoints: list[int],
+# ) -> None:
+#     """
+#     Write stance score into the trajectory at configured checkpoint turns.
+
+#     Assumes checkpoint 0 is handled separately before the conversation loop.
+#     If one post-conversation checkpoint is configured, store it as t10.
+#     If two post-conversation checkpoints are configured, store them as t5 and t10.
+#     """
+#     if not probe.is_stance_checkpoint:
+#         return
+
+#     post_checkpoints = [c for c in stance_checkpoints if c != 0]
+
+#     if not post_checkpoints:
+#         return
+
+#     if len(post_checkpoints) == 1:
+#         if probe.turn == post_checkpoints[0]:
+#             trajectory.t10 = probe.stance_score
+#         return
+
+#     if probe.turn == post_checkpoints[0]:
+#         trajectory.t5 = probe.stance_score
+#     elif probe.turn == post_checkpoints[-1]:
+#         trajectory.t10 = probe.stance_score
+
 def _update_stance_trajectory(
     trajectory: StanceTrajectory,
-    probe: "ProbeRecord",
-    stance_checkpoints: list[int],
+    probe: ProbeRecord,
 ) -> None:
-    """
-    Write stance score into the trajectory at configured checkpoint turns.
-
-    Assumes checkpoint 0 is handled separately before the conversation loop.
-    If one post-conversation checkpoint is configured, store it as t10.
-    If two post-conversation checkpoints are configured, store them as t5 and t10.
-    """
-    if not probe.is_stance_checkpoint:
-        return
-
-    post_checkpoints = [c for c in stance_checkpoints if c != 0]
-
-    if not post_checkpoints:
-        return
-
-    if len(post_checkpoints) == 1:
-        if probe.turn == post_checkpoints[0]:
-            trajectory.t10 = probe.stance_score
-        return
-
-    if probe.turn == post_checkpoints[0]:
-        trajectory.t5 = probe.stance_score
-    elif probe.turn == post_checkpoints[-1]:
-        trajectory.t10 = probe.stance_score
+    if probe.is_stance_checkpoint:
+        trajectory.set(probe.turn, probe.stance_score)
