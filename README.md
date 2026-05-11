@@ -159,7 +159,7 @@ uv run python main.py --mode dry_run
 A minimal end-to-end test intended to verify that the pipeline is operational.
 
 ```powershell
-uv run python main.py --mode dry_run --config config/experiment.test.yaml --prompts config/prompts.yaml
+uv run python main.py --mode dry_run --config config/experiment_test.yaml --prompts config/prompts.yaml
 ```
 
 ### Full experiment
