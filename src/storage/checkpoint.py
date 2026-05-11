@@ -141,6 +141,26 @@ class CheckpointStore:
 # Serialisation
 # ---------------------------------------------------------------------------
 
+# def _serialise(result: ConversationResult) -> dict:
+#     """Convert ConversationResult to a JSON-serialisable dict."""
+#     return {
+#         "completed": result.completed,
+#         "error": result.error,
+#         "config": _serialise_config(result.config),
+#         "stance_trajectory": {
+#             "t0": result.stance_trajectory.t0,
+#             "t5": result.stance_trajectory.t5,
+#             "t10": result.stance_trajectory.t10,
+#             "shift": result.stance_trajectory.shift,
+#         },
+#         "judge_result": _serialise_judge(result.judge_result),
+#         "turns": [_serialise_turn(t) for t in result.turns],
+#         # Computed aggregates — stored for convenience in analysis
+#         "persuader_success_mean": result.persuader_success_mean,
+#         "safety_flag_count": result.safety_flag_count,
+#         "turn_first_drift": result.turn_first_drift,
+#     }
+
 def _serialise(result: ConversationResult) -> dict:
     """Convert ConversationResult to a JSON-serialisable dict."""
     return {
@@ -148,9 +168,7 @@ def _serialise(result: ConversationResult) -> dict:
         "error": result.error,
         "config": _serialise_config(result.config),
         "stance_trajectory": {
-            "t0": result.stance_trajectory.t0,
-            "t5": result.stance_trajectory.t5,
-            "t10": result.stance_trajectory.t10,
+            "scores": result.stance_trajectory.scores,
             "shift": result.stance_trajectory.shift,
         },
         "judge_result": _serialise_judge(result.judge_result),
@@ -160,7 +178,6 @@ def _serialise(result: ConversationResult) -> dict:
         "safety_flag_count": result.safety_flag_count,
         "turn_first_drift": result.turn_first_drift,
     }
-
 
 def _serialise_config(cfg: ExperimentConfig) -> dict:
     return {
@@ -206,9 +223,12 @@ def _serialise_turn(turn: TurnRecord) -> dict:
             "stance_score": turn.probe.stance_score,
             "confidence_score": turn.probe.confidence_score,
             "safety_flag": turn.probe.safety_flag,
+            "checkpoint_judge_score": turn.probe.checkpoint_judge_score,
             "is_stance_checkpoint": turn.probe.is_stance_checkpoint,
         },
         "persuader_reasoning": _serialise_persuader_record(turn.persuader_reasoning),
+        "persuader_reasoning_trace": turn.persuader_reasoning_trace,
+        "persuadee_reasoning_trace": turn.persuadee_reasoning_trace,
     }
 
 
@@ -257,10 +277,13 @@ def _deserialise(data: dict) -> ConversationResult:
     )
 
     traj_data = data.get("stance_trajectory", {})
+    # trajectory = StanceTrajectory(
+    #     t0=traj_data.get("t0"),
+    #     t5=traj_data.get("t5"),
+    #     t10=traj_data.get("t10"),
+    # )
     trajectory = StanceTrajectory(
-        t0=traj_data.get("t0"),
-        t5=traj_data.get("t5"),
-        t10=traj_data.get("t10"),
+    scores={int(k): v for k, v in traj_data.get("scores", {}).items()}
     )
 
     judge_data = data.get("judge_result")
@@ -291,6 +314,7 @@ def _deserialise_turn(data: dict) -> TurnRecord:
         stance_score=probe_data.get("stance_score"),
         confidence_score=probe_data.get("confidence_score"),
         safety_flag=probe_data.get("safety_flag"),
+        checkpoint_judge_score=probe_data.get("checkpoint_judge_score"),
         is_stance_checkpoint=probe_data.get("is_stance_checkpoint", False),
     )
 
@@ -310,4 +334,6 @@ def _deserialise_turn(data: dict) -> TurnRecord:
         persuadee_response=data["persuadee_response"],
         probe=probe,
         persuader_reasoning=persuader_record,
+        persuader_reasoning_trace=data.get("persuader_reasoning_trace"),
+        persuadee_reasoning_trace=data.get("persuadee_reasoning_trace"),
     )
