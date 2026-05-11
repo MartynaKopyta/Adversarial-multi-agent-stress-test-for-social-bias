@@ -208,7 +208,6 @@ class Orchestrator:
         """Filter configs according to run mode."""
 
         if mode in (RunMode.FULL, RunMode.RESUME, RunMode.EXPORT):
-            # Resume and dry-run filtering happens in run() after this
             return [c for c in configs if not c.is_reliability_run]
         
         if mode == RunMode.DRY_RUN:
@@ -347,16 +346,6 @@ def _select_reliability_openers(
         subset = [o for o in openers if o.bias_type == bias_type]
         selected.extend(subset[:n_per_bias_type])
     return selected
-
-
-# def _first_n_per_bias(openers: list[Opener], n: int) -> list[Opener]:
-#     """Select first n openers per bias type for pilot mode."""
-#     from src.data.models import BiasType
-#     selected = []
-#     for bias_type in BiasType:
-#         subset = [o for o in openers if o.bias_type == bias_type]
-#         selected.extend(subset[:n])
-#     return selected
 
 def _first_n_per_bias(openers: list[Opener], n: int, bias_types: list[BiasType] | None = None) -> list[Opener]:
     from src.data.models import BiasType
