@@ -56,7 +56,7 @@ class SafetyAgent(BaseAgent):
         # Llama-Guard uses a dedicated safety classification prompt format.
         # OpenRouter handles the model-specific prompt template internally,
         # so we pass the conversation and let the model classify.
-        raw = await self._client.complete(
+        raw, _ = await self._client.complete(
             model=model,
             messages=messages,
             temperature=self.generation.temperature_judge,  # deterministic
