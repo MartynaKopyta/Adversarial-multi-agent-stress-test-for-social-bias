@@ -66,6 +66,7 @@ class Orchestrator:
     openers: list[Opener],
     mode: RunMode,
     specific_opener_id: str | None = None,
+    parallel: bool | None = None,  # None = use mode default
     ) -> list[ConversationResult]:
         all_configs = self._build_configs(openers)
         resolved_id = None
@@ -78,11 +79,15 @@ class Orchestrator:
             mode.value, len(all_configs), len(filtered),
         )
 
+        if parallel is None:
+            parallel = mode in (RunMode.FULL, RunMode.RESUME)
+
         if mode == RunMode.EXPORT:
             logger.info("Export mode — skipping API calls.")
             return []
 
         if mode == RunMode.DRY_RUN:
+            parallel = False  # always override for dry run
             pending = filtered[:1]
             logger.info("Dry run — limiting to %d conversations, no checkpoints.", len(pending))
         else:
@@ -100,35 +105,35 @@ class Orchestrator:
                 logger.info("Nothing to run — all conversations already complete.")
                 return self._checkpoint_store.load_all()
         
-        # this makes many conversations run in parallel, but each conversation's turns are sequential
-        # however, because of this we have rate limit errors - look into budget and make a decision here
-        # fallback to sequential for now to avoid hitting rate limits, but ideally we would run in parallel with proper rate limiting
-        # tasks = [
-        #     self._run_one(
-        #         cfg,
-        #         save_checkpoint=(mode != RunMode.DRY_RUN),
-        #         verbose=(mode == RunMode.DRY_RUN),
-        #     )
-        #     for cfg in pending
-        # ]
-        #results = await asyncio.gather(*tasks, return_exceptions=False)
-        results = []
-        for i, cfg in enumerate(pending):
-            result = await self._run_one(
-                cfg,
-                save_checkpoint=(mode != RunMode.DRY_RUN),
-                verbose=(mode == RunMode.DRY_RUN),
-            )
-            results.append(result)
-            if i < len(pending) - 1:
-                await asyncio.sleep(1.0)  # gentle pause between conversations
+        if parallel:
+            logger.info("Running %d conversations in parallel.", len(pending))
+            tasks = [
+                self._run_one(
+                    cfg,
+                    save_checkpoint=(mode != RunMode.DRY_RUN),
+                    verbose=False,
+                )
+                for cfg in pending
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=False)
+        else:
+            logger.info("Running %d conversations sequentially.", len(pending))
+            results = []
+            for i, cfg in enumerate(pending):
+                result = await self._run_one(
+                    cfg,
+                    save_checkpoint=(mode != RunMode.DRY_RUN),
+                    verbose=(mode == RunMode.DRY_RUN),
+                )
+                results.append(result)
+                if i < len(pending) - 1:
+                    await asyncio.sleep(1.0)
 
         logger.info(
             "Run complete. %d succeeded, %d failed.",
             sum(1 for r in results if r.completed),
             sum(1 for r in results if not r.completed),
         )
-
         return list(results)
 
     # ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ Usage:
     python main.py --mode full --prompts config/prompts.yaml
 """
 from __future__ import annotations
+from email import parser
 from dotenv import load_dotenv
 load_dotenv()
 import argparse
@@ -42,7 +43,7 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Run modes:
-  full         Run all 450 conversations (skips already-completed checkpoints)
+  full         Run all conversations (skips already-completed checkpoints)
   pilot        Run a small fixed subset for initial validation
   reliability  Run the reliability subset (10 starters × 3 replicates)
   resume       Alias for full — makes intent explicit when resuming a crashed run
@@ -52,7 +53,7 @@ Run modes:
     )
     parser.add_argument(
         "--mode",
-        type=str,
+        type=lambda s: s.replace("-", "_"),  # normalise dry-run → dry_run
         choices=[m.value for m in RunMode],
         default=RunMode.PILOT.value,
         help="Which subset of conversations to run (default: pilot).",
@@ -79,6 +80,18 @@ Run modes:
         type=str,
         default=None,
         help="Run pilot with a specific opener ID instead of the first N.",
+    )
+    parser.add_argument(
+    "--parallel",
+    action="store_true",
+    default=False,
+    help="Force parallel execution.",
+    )
+    parser.add_argument(
+        "--no-parallel",
+        action="store_true",
+        default=False,
+        help="Force sequential execution regardless of mode.",
     )
     return parser.parse_args()
 
@@ -138,10 +151,16 @@ async def main() -> int:
     config.api.rpm_limits,
 )
 
-
     async with OpenRouterClient(config.api, config.generation, rate_limiter) as client:
         orchestrator = Orchestrator(config, client)
-        results = await orchestrator.run(openers, mode, args.opener_id)
+
+        parallel = None
+        if args.parallel:
+            parallel = True
+        if args.no_parallel:
+            parallel = False
+
+        results = await orchestrator.run(openers, mode, args.opener_id, parallel=parallel)
 
     # --- Export after run (skip for dry-run) ---
     if mode != RunMode.DRY_RUN:
