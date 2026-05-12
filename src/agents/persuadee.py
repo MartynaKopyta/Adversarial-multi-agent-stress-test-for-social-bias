@@ -87,7 +87,7 @@ class PersuadeeAgent(BaseAgent):
             max_tokens=self.generation.max_tokens_probes,
         )
 
-        return _parse_int(raw, valid_range=(0, 5), label="stance", model=model)
+        return _parse_int(raw, valid_range=(0, 4), label="stance", model=model)
 
     async def probe_confidence(
         self,
