@@ -133,7 +133,7 @@ OPENROUTER_API_KEY=your_key_here
 
 ## Running the Project
 
-The recommended way to run the project is through `uv run`:
+The recommended way to run the project is through `uv run`, example:
 
 ```powershell
 uv run python main.py --mode dry_run --config config/experiment_test.yaml --prompts config/prompts.yaml
@@ -143,6 +143,15 @@ uv run python main.py --mode dry_run --config config/experiment_test.yaml --prom
 
 ## Available Run Modes
 
+| Mode | Description | Parallel default |
+|---|---|---|
+| `full` | Run all conversations, skip completed checkpoints | Yes |
+| `pilot` | Run a small fixed subset per bias type | No |
+| `reliability` | Run the reliability subset | No |
+| `resume` | Alias for full, makes intent explicit when resuming | Yes |
+| `export` | Merge checkpoints into analysis files, no API calls | N/A |
+| `dry-run` | Run 1 conversation with verbose output, no checkpoints | No |
+
 ```powershell
 uv run python main.py --mode full
 uv run python main.py --mode pilot
@@ -151,6 +160,18 @@ uv run python main.py --mode resume
 uv run python main.py --mode export
 uv run python main.py --mode dry_run
 ```
+
+## CLI Arguments
+
+| Argument | Description | Default |
+|---|---|---|
+| `--mode` | Run mode (see below) | `pilot` |
+| `--config` | Path to experiment YAML | `config/experiment.yaml` |
+| `--prompts` | Path to prompts YAML | `config/prompts.yaml` |
+| `--opener-id` | Run a specific opener by ID or number (e.g. `5` or `gender_005`) | None |
+| `--parallel` | Force parallel execution | False |
+| `--no-parallel` | Force sequential execution regardless of mode | False |
+| `--export-only` | Shorthand for `--mode export` | False |
 
 ## Recommended Workflow
 
@@ -166,9 +187,11 @@ uv run python main.py --mode dry_run --config config/experiment_test.yaml --prom
 
 Runs the configured experiment using the main YAML file.
 
-```powershell
-uv run python main.py --mode full --config config/experiment.yaml --prompts config/prompts.yaml
-```
+### Pilot with specific opener (or default one)
+uv run python main.py --mode pilot --opener-id 5 --config config/experiment_test.yaml --prompts config/prompts.yaml
+
+### Full experiment (parallel, recommended)
+uv run python main.py --mode full --parallel --config config/experiment.yaml --prompts config/prompts.yaml
 
 ### Export only
 
