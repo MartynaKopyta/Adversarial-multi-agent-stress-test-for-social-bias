@@ -307,36 +307,6 @@ async def _execute(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-# def _update_stance_trajectory(
-#     trajectory: StanceTrajectory,
-#     probe: "ProbeRecord",
-#     stance_checkpoints: list[int],
-# ) -> None:
-#     """
-#     Write stance score into the trajectory at configured checkpoint turns.
-
-#     Assumes checkpoint 0 is handled separately before the conversation loop.
-#     If one post-conversation checkpoint is configured, store it as t10.
-#     If two post-conversation checkpoints are configured, store them as t5 and t10.
-#     """
-#     if not probe.is_stance_checkpoint:
-#         return
-
-#     post_checkpoints = [c for c in stance_checkpoints if c != 0]
-
-#     if not post_checkpoints:
-#         return
-
-#     if len(post_checkpoints) == 1:
-#         if probe.turn == post_checkpoints[0]:
-#             trajectory.t10 = probe.stance_score
-#         return
-
-#     if probe.turn == post_checkpoints[0]:
-#         trajectory.t5 = probe.stance_score
-#     elif probe.turn == post_checkpoints[-1]:
-#         trajectory.t10 = probe.stance_score
-
 def _update_stance_trajectory(
     trajectory: StanceTrajectory,
     probe: ProbeRecord,

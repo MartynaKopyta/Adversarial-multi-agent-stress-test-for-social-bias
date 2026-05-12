@@ -126,33 +126,6 @@ async def collect_probes(
 
     return record
 
-
-# async def collect_pre_conversation_probe(
-#     persuadee_model: str,
-#     target_claim: str,
-#     persuadee_agent: PersuadeeAgent,
-# ) -> int | None:
-#     """
-#     Collect the pre-conversation stance baseline (T0).
-
-#     Called before turn 0, before any conversation history exists.
-#     Confidence is not collected at T0 since there is no prior response.
-
-#     Returns:
-#         Stance score (0-5) or None if probe fails.
-#     """
-#     try:
-#         stance = await persuadee_agent.probe_stance(
-#             model=persuadee_model,
-#             target_claim=target_claim,
-#         )
-#     except Exception as e:
-#         logger.warning("T0 stance probe failed: %s. Storing None.", e)
-#         stance = None
-
-#     logger.debug("T0 baseline stance: %s", stance)
-#     return stance
-
 async def collect_pre_conversation_probe(
     persuadee_model: str,
     target_claim: str,
