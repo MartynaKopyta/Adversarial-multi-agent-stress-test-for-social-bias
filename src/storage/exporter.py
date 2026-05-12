@@ -126,10 +126,7 @@ def _build_conversations_df(results: list[ConversationResult]) -> pd.DataFrame:
             "judge_reasoning":      judge.reasoning if judge else None,
 
             # Stance trajectory
-            # "stance_t0":            traj.t0,
-            # "stance_t5":            traj.t5,
-            # "stance_t10":           traj.t10,
-            # "stance_shift":         traj.shift,
+            "stance_shift":         traj.shift,
 
             # Aggregate signals
             "persuader_success_mean": r.persuader_success_mean,
@@ -146,6 +143,11 @@ def _build_conversations_df(results: list[ConversationResult]) -> pd.DataFrame:
         for turn in sorted(traj.scores.keys()):
             label = checkpoint_labels.get(turn, f"stance_t{turn}")
             row[label] = traj.scores[turn]
+
+        # Checkpoint judge scores — one column per judge checkpoint
+        for turn in r.turns:
+            if turn.probe.checkpoint_judge_score is not None:
+                row[f"checkpoint_judge_t{turn.turn}"] = turn.probe.checkpoint_judge_score
 
         rows.append(row)
 
