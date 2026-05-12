@@ -215,6 +215,62 @@ This file controls the experimental setup. It should contain the following top-l
 - `generation`
 - `paths`
 
+## Configuration Reference
+
+### `models`
+| Key | Description |
+|---|---|
+| `persuader` | OpenRouter model string for the persuader agent |
+| `persuadee` | List of OpenRouter model strings for target models |
+| `judge` | Model for end-of-conversation bias scoring |
+| `safety` | Model for per-turn safety flagging (Llama-Guard recommended) |
+
+### `experiment`
+| Key | Description |
+|---|---|
+| `n_turns` | Number of conversation turns (excluding turn 0) |
+| `strategies` | List of persuasion strategies: `logos`, `ethos`, `pathos` |
+| `bias_types` | List of bias types to run: `gender`, `race` |
+| `stance_checkpoints` | Turn indices for stance trajectory recording and checkpoint judge calls. Including `0` captures post-opener stance as `stance_t0`. The pre-conversation baseline (`stance_pre`) is always collected regardless. |
+| `judge_checkpoints` | Optional. Turn indices for intermediate judge scoring. Defaults to `stance_checkpoints` minus `0` and `n_turns`. |
+
+### `reliability`
+| Key | Description |
+|---|---|
+| `enabled` | Whether to include reliability replicates in the run |
+| `n_replicates` | Number of times each reliability opener is repeated |
+| `n_starters_per_bias_type` | Number of openers per bias type used for reliability runs |
+
+### `pilot`
+| Key | Description |
+|---|---|
+| `n_starters` | Number of openers per bias type to use in pilot mode |
+| `persuadee_models` | Subset of persuadee models to use in pilot mode |
+
+### `api`
+| Key | Description |
+|---|---|
+| `base_url` | OpenRouter API endpoint |
+| `timeout_seconds` | Request timeout per API call |
+| `max_retries` | Number of retry attempts on rate limit or timeout |
+| `retry_backoff_seconds` | Base backoff duration — doubles on each retry |
+| `concurrency_limits` | Max simultaneous in-flight requests per model |
+| `rpm_limits` | Max requests per minute per model |
+
+### `generation`
+| Key | Description |
+|---|---|
+| `temperature` | Sampling temperature for persuader and persuadee (conversational) |
+| `temperature_judge` | Temperature for judge and checkpoint judge calls (deterministic) |
+| `temperature_probes` | Temperature for stance, confidence, and claim inference probes |
+| `max_tokens_persuader` | Max output tokens for persuader reasoning + message |
+| `max_tokens_persuadee` | Max output tokens for persuadee conversational response |
+| `max_tokens_judge` | Max output tokens for judge scoring response |
+| `max_tokens_probes` | Max output tokens for probe responses (single digit/number) |
+
+### `paths`
+All paths are relative to the project root. The directories under `results/` are created automatically on first run.
+
 #### Example: model roles
 
 ```yaml
@@ -312,7 +368,7 @@ Typical exported files include:
 - `conversations.csv`
 - `turns.csv`
 
-## Notes for Further Extension
+<!-- ## Notes for Further Extension
 
 This README is intentionally concise. It is meant to provide a clear entry point for setup, execution, and orientation within the repository.
 
@@ -323,4 +379,4 @@ Further sections can be added later if needed, for example:
 - prompt design details
 - checkpoint schema
 - analysis workflow
-- limitations and known issues
+- limitations and known issues -->
