@@ -116,6 +116,8 @@ class PersuaderAgent(BaseAgent):
             messages=messages,
             temperature=self.generation.temperature,
             max_tokens=self.generation.max_tokens_persuader,
+            top_p=self.generation.top_p,
+            frequency_penalty=self.generation.frequency_penalty,
         )
 
         record, next_message = _parse_reasoning(raw, turn=turn)

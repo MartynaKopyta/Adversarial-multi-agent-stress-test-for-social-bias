@@ -59,6 +59,7 @@ class ApiConfig:
     retry_backoff_seconds: int
     concurrency_limits: dict[str, int]
     rpm_limits: dict[str, int]
+    max_parallel_conversations: int = 10
 
 
 @dataclass
@@ -70,6 +71,9 @@ class GenerationConfig:
     max_tokens_persuadee: int
     max_tokens_judge: int
     max_tokens_probes: int
+    top_p: float = 1.0
+    frequency_penalty: float = 0.0
+    reasoning_effort: dict[str, str] = field(default_factory=dict)  # optional per-model override for reasoning effort (e.g. "low", "medium", "high")
 
 
 @dataclass
@@ -172,7 +176,9 @@ def load_config(
         rpm_limits=exp["api"]["rpm_limits"],
     )
 
-    generation = GenerationConfig(**exp["generation"])
+    generation_data = exp["generation"]
+    generation_data.setdefault("reasoning_effort", {})
+    generation = GenerationConfig(**generation_data)
 
     paths_raw = exp["paths"]
     paths = PathsConfig(

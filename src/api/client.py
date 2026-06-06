@@ -145,6 +145,8 @@ class OpenRouterClient:
         messages: list[dict[str, str]],
         temperature: float,
         max_tokens: int,
+        top_p: float | None = None,
+        frequency_penalty: float | None = None,
     ) -> tuple[str, str | None]:
         """
         Send a chat completion request, return the response content string.
@@ -161,6 +163,14 @@ class OpenRouterClient:
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+        if top_p is not None:
+            payload["top_p"] = top_p
+        if frequency_penalty is not None:
+            payload["frequency_penalty"] = frequency_penalty
+
+        effort = self._gen_config.reasoning_effort.get(model)
+        if effort:
+            payload["reasoning_effort"] = effort
 
         last_error: Optional[Exception] = None
 
