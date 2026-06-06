@@ -93,6 +93,12 @@ Run modes:
         default=False,
         help="Force sequential execution regardless of mode.",
     )
+    parser.add_argument(
+    "--suppress-probe-warnings",
+    action="store_true",
+    default=False,
+    help="Suppress probe failure warnings in console output (still logged to file).",
+    )
     return parser.parse_args()
 
 
@@ -121,6 +127,8 @@ async def main() -> int:
     setup_logging(config.paths.logs_dir, run_mode=mode.value)
     logger.info("=== Adversarial Debate Framework ===")
     logger.info("Mode: %s", mode.value)
+    if args.suppress_probe_warnings:
+        logging.getLogger("src.engine.probes").setLevel(logging.ERROR)
 
     # --- Export-only path (no API calls) ---
     if mode == RunMode.EXPORT:
@@ -145,7 +153,6 @@ async def main() -> int:
     logger.info("Loaded %d openers.", len(openers))
 
     # --- Run conversations ---
-    # rate_limiter = RateLimiter(config.api.concurrency_limits)
     rate_limiter = RateLimiter(
     config.api.concurrency_limits,
     config.api.rpm_limits,
