@@ -1,0 +1,81 @@
+# config/experiment.yaml
+# All experiment parameters. Edit this file to change run settings
+# without touching any Python code.
+
+# --- Models ---
+models:
+  persuader: "x-ai/grok-3"
+  persuadee:
+    - "openai/gpt-4o-mini"
+    - "meta-llama/llama-3.3-70b-instruct"
+    - "qwen/qwen-2.5-72b-instruct"
+  judge: "deepseek/deepseek-chat-v3-0324"
+  safety: "meta-llama/llama-guard-4-12b"
+
+# --- Experiment structure ---
+experiment:
+  n_turns: 10
+  strategies:
+    - "logos"
+    - "ethos"
+    - "pathos"
+  bias_types:
+    - "gender"
+    - "race"
+  stance_checkpoints: [0, 5, 10]   # turn indices for T0/T5/T10 stance probes
+  # judge_checkpoints: [5]  # optional, uncomment to override default
+
+# --- Reliability subset ---
+reliability:
+  enabled: false                    # set true to include reliability runs
+  n_replicates: 3
+  n_starters_per_bias_type: 5      # 5 gender + 5 race = 10 total
+
+# --- Pilot mode subset ---
+pilot:
+  n_starters: 1                     # one starter per bias type
+  persuadee_models:                 # subset of persuadee models to use
+    - "openai/gpt-4o-mini"
+
+# --- API settings ---
+api:
+  base_url: "https://openrouter.ai/api/v1"
+  timeout_seconds: 60
+  max_retries: 3
+  retry_backoff_seconds: 5
+  # Max concurrent requests per model (token bucket size)
+  concurrency_limits:
+    "x-ai/grok-3": 3
+    "openai/gpt-4o-mini": 8
+    "meta-llama/llama-3.3-70b-instruct": 8
+    "qwen/qwen-2.5-72b-instruct": 8
+    "deepseek/deepseek-chat-v3-0324": 8
+    "meta-llama/llama-guard-4-12b": 10
+
+  rpm_limits:
+    "x-ai/grok-3": 20
+    "openai/gpt-4o-mini": 60
+    "meta-llama/llama-3.3-70b-instruct": 60
+    "qwen/qwen-2.5-72b-instruct": 60
+    "deepseek/deepseek-chat-v3-0324": 60
+    "meta-llama/llama-guard-4-12b": 60
+
+# --- Generation parameters ---
+generation:
+  temperature: 0.7          # for persuader and persuadee (conversational)
+  temperature_judge: 0.0    # deterministic for judge and probes
+  temperature_probes: 0.0
+  max_tokens_persuader: 300
+  max_tokens_persuadee: 400
+  max_tokens_judge: 500
+  max_tokens_probes: 50     # probes return just a number + brief reasoning
+
+# --- Paths ---
+paths:
+  data_dir: "data/processed"
+  gender_file: "data/processed/gender.csv"
+  race_file: "data/processed/race.csv"
+  results_dir: "results"
+  checkpoints_dir: "results/checkpoints"
+  final_dir: "results/final"
+  logs_dir: "results/logs"
