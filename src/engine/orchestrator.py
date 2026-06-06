@@ -69,10 +69,10 @@ class Orchestrator:
     parallel: bool | None = None,  # None = use mode default
     ) -> list[ConversationResult]:
         all_configs = self._build_configs(openers)
-        resolved_id = None
+        resolved_ids = []
         if specific_opener_id:
-            resolved_id = self._resolve_opener_id(specific_opener_id, openers)
-        filtered = self._apply_mode(all_configs, mode, resolved_id)
+            resolved_ids = self._resolve_opener_id(specific_opener_id, openers)
+        filtered = self._apply_mode(all_configs, mode, resolved_ids)
 
         logger.info(
             "Mode: %s | Total configs: %d | Running: %d",
@@ -106,15 +106,19 @@ class Orchestrator:
                 return self._checkpoint_store.load_all()
         
         if parallel:
-            logger.info("Running %d conversations in parallel.", len(pending))
-            tasks = [
-                self._run_one(
-                    cfg,
-                    save_checkpoint=(mode != RunMode.DRY_RUN),
-                    verbose=False,
-                )
-                for cfg in pending
-            ]
+            conversation_semaphore = asyncio.Semaphore(
+                self._config.api.max_parallel_conversations
+            )
+
+            async def run_with_limit(cfg):
+                async with conversation_semaphore:
+                    return await self._run_one(
+                        cfg,
+                        save_checkpoint=(mode != RunMode.DRY_RUN),
+                        verbose=False,
+                    )
+
+            tasks = [run_with_limit(cfg) for cfg in pending]
             results = await asyncio.gather(*tasks, return_exceptions=False)
         else:
             logger.info("Running %d conversations sequentially.", len(pending))
@@ -208,7 +212,7 @@ class Orchestrator:
         self,
         configs: list[ExperimentConfig],
         mode: RunMode,
-        specific_opener_id: str | None = None,
+        specific_opener_ids: list[str] | None = None,
     ) -> list[ExperimentConfig]:
         """Filter configs according to run mode."""
 
@@ -217,15 +221,15 @@ class Orchestrator:
         
         if mode == RunMode.DRY_RUN:
             base = [c for c in configs if not c.is_reliability_run]
-            if specific_opener_id:
-                base = [c for c in base if c.opener.id == specific_opener_id]
+            if specific_opener_ids:
+                base = [c for c in base if c.opener.id in specific_opener_ids]
             return base
 
         if mode == RunMode.PILOT:
-            if specific_opener_id:
+            if specific_opener_ids:
                 return [
                     c for c in configs
-                    if c.opener.id == specific_opener_id
+                    if c.opener.id in specific_opener_ids
                     and not c.is_reliability_run
                 ]
             pilot_cfg = self._config.pilot
@@ -280,34 +284,26 @@ class Orchestrator:
 
         return result
     
-    def _resolve_opener_id(self, opener_id: str, openers: list[Opener]) -> str | None:
-        # Filter openers to only those matching configured bias types
+    def _resolve_opener_id(self, opener_id: str, openers: list[Opener]) -> list[str]:
         bias_types = {bt.value for bt in self._config.experiment.bias_types}
         scoped_openers = [o for o in openers if o.bias_type.value in bias_types]
 
+        # Exact match
         if opener_id in {o.id for o in scoped_openers}:
-            return opener_id  # exact match
+            return [opener_id]
 
+        # Try as number — return ALL matches across bias types
         try:
             padded = str(int(opener_id)).zfill(3)
-            matches = [o for o in scoped_openers if o.id.endswith(f"_{padded}")]
-            if len(matches) == 1:
-                return matches[0].id
-            if len(matches) > 1:
-                logger.warning(
-                    "Opener ID '%s' matched multiple openers even within configured "
-                    "bias types %s: %s. Use full ID to disambiguate.",
-                    opener_id, bias_types, [o.id for o in matches]
-                )
-                return None
+            matches = [o.id for o in scoped_openers if o.id.endswith(f"_{padded}")]
+            if matches:
+                logger.info("Opener ID '%s' resolved to: %s", opener_id, matches)
+                return matches
         except ValueError:
             pass
 
-        logger.warning(
-            "Opener ID '%s' not found within bias types %s.",
-            opener_id, bias_types,
-        )
-        return None
+        logger.warning("Opener ID '%s' not found within bias types %s.", opener_id, bias_types)
+        return []
 
 
 # ---------------------------------------------------------------------------
