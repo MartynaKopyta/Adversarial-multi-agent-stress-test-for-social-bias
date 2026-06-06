@@ -39,7 +39,10 @@ def setup_logging(logs_dir: Path, run_mode: str) -> None:
     # --- Console handler ---
     console = logging.StreamHandler(sys.stdout)
     console.setLevel(logging.INFO)
-    console.setFormatter(_concise_formatter())
+    console.setFormatter(NoTracebackFormatter(    
+        fmt="%(asctime)s  %(levelname)-8s  %(message)s",
+        datefmt="%H:%M:%S",
+    ))
     root.addHandler(console)
 
     # --- File handler ---
@@ -50,12 +53,12 @@ def setup_logging(logs_dir: Path, run_mode: str) -> None:
 
     logging.info("Logging initialised. Log file: %s", log_file)
 
-
-def _concise_formatter() -> logging.Formatter:
-    return logging.Formatter(
-        fmt="%(asctime)s  %(levelname)-8s  %(message)s",
-        datefmt="%H:%M:%S",
-    )
+class NoTracebackFormatter(logging.Formatter):
+    def format(self, record):
+        record = logging.makeLogRecord(record.__dict__)  # copy to avoid mutating original
+        record.exc_info = None
+        record.exc_text = None
+        return super().format(record)
 
 
 def _verbose_formatter() -> logging.Formatter:
