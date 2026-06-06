@@ -172,6 +172,7 @@ uv run python main.py --mode dry_run
 | `--parallel` | Force parallel execution | False |
 | `--no-parallel` | Force sequential execution regardless of mode | False |
 | `--export-only` | Shorthand for `--mode export` | False |
+| `--suppress-probe-warnings` | Suppresses warnings about probes failing | False |
 
 ## Recommended Workflow
 
@@ -180,18 +181,18 @@ uv run python main.py --mode dry_run
 A minimal end-to-end test intended to verify that the pipeline is operational.
 
 ```powershell
-uv run python main.py --mode dry_run --config config/experiment_test.yaml --prompts config/prompts.yaml
+uv run python main.py --mode dry-run --config config/experiment_test.yaml --prompts config/prompts.yaml
 ```
 
 ### Full experiment
 
 Runs the configured experiment using the main YAML file.
 
-### Pilot with specific opener (or default one)
-uv run python main.py --mode pilot --opener-id 5 --config config/experiment_test.yaml --prompts config/prompts.yaml
+### Pilot with specific opener 
+uv run python main.py --mode pilot --config config/experiment.yaml --prompts config/prompts.yaml
 
-### Full experiment (parallel, recommended)
-uv run python main.py --mode full --parallel --config config/experiment.yaml --prompts config/prompts.yaml
+### Full experiment (parallel, recommended, used by default)
+uv run python main.py --mode full --config config/experiment.yaml --prompts config/prompts.yaml
 
 ### Export only
 
