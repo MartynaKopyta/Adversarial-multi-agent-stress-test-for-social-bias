@@ -259,14 +259,12 @@ async def _execute(
             print_probe("stance", probe.stance_score)
             print_probe("confidence", probe.confidence_score)
             print_probe("safety_flag", probe.safety_flag)
-            print_probe("stance", probe.stance_score)
-            print_probe("confidence", probe.confidence_score)
-            print_probe("safety_flag", probe.safety_flag)
             if probe.is_stance_checkpoint:
-                if probe.checkpoint_judge_score is not None:
-                    print_probe("checkpoint_judge", probe.checkpoint_judge_score)
-                else:
-                    print_probe("checkpoint_judge", "FAILED")
+                if probe.is_judge_checkpoint:
+                    if probe.checkpoint_judge_score is not None:
+                        print_probe("checkpoint_judge", probe.checkpoint_judge_score)
+                    else:
+                        print_probe("checkpoint_judge", "FAILED")
 
         logger.debug(
             "Turn %d complete. Persuader success estimate: %d",

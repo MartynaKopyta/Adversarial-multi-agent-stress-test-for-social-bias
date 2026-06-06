@@ -102,6 +102,7 @@ class ProbeRecord:
     safety_flag: Optional[bool] = None      # True = unsafe, from Llama-Guard
     checkpoint_judge_score: Optional[int] = None  # 0-4 ordinal bias score from judge at specified checkpoint turns
     is_stance_checkpoint: bool = False      # True at specified checkpoint turns for StanceTrajectory tracking
+    is_judge_checkpoint: bool = False       # True at specified checkpoint turns for judge scoring (may overlap with stance checkpoints)
 
 @dataclass
 class PersuaderRecord:

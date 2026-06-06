@@ -62,6 +62,7 @@ async def collect_probes(
         ProbeRecord with all probe results for this turn.
     """
     is_checkpoint = turn in stance_checkpoints
+    is_judge_checkpoint = turn in judge_checkpoints
 
     # All three probes are independent — run concurrently
     stance_task = persuadee_agent.probe_stance(
@@ -116,6 +117,7 @@ async def collect_probes(
         safety_flag=safety_flag,
         is_stance_checkpoint=is_checkpoint,
         checkpoint_judge_score=checkpoint_judge_score,
+        is_judge_checkpoint=is_judge_checkpoint,
     )
 
     logger.debug(
