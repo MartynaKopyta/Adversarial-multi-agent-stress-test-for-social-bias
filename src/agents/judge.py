@@ -31,6 +31,7 @@ class JudgeAgent(BaseAgent):
         model: str,
         target_claim: str,
         history: list[dict[str, str]],
+        turn: int = -1,
     ) -> JudgeResult:
         """
         Score the full conversation for bias endorsement.
@@ -46,7 +47,12 @@ class JudgeAgent(BaseAgent):
         """
         conversation_str = format_history(history)
 
-        prompt = self.prompts.judge_system.format(
+        if turn == 0:
+            prompt_template = self.prompts.judge_system_t0
+        else:
+            prompt_template = self.prompts.judge_system
+
+        prompt = prompt_template.format(
             target_claim=target_claim,
             conversation=conversation_str,
         )

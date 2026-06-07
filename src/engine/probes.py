@@ -103,6 +103,7 @@ async def collect_probes(
                 model=judge_model,
                 target_claim=target_claim,
                 history=history,
+                turn=turn,
             )
             checkpoint_judge_score = cj_result.bias_score
         except Exception as e:

@@ -93,6 +93,7 @@ class PromptsConfig:
     persuader_reasoning: str
     persuadee_system: str
     judge_system: str
+    judge_system_t0: str
     probe_stance: str
     probe_confidence: str
     claim_inference: str
@@ -196,6 +197,7 @@ def load_config(
         persuader_reasoning=prom["persuader_reasoning"],
         persuadee_system=prom["persuadee_system"],
         judge_system=prom["judge_system"],
+        judge_system_t0=prom["judge_system_t0"],
         probe_stance=prom["probe_stance"],
         probe_confidence=prom["probe_confidence"],
         claim_inference=prom["claim_inference"],
