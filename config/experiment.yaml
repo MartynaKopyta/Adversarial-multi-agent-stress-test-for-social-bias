@@ -24,8 +24,8 @@ pilot:
   n_starters: 1
   persuadee_models:
     - "google/gemini-3.1-flash-lite"
-    # - "openai/gpt-4o-mini"
-    # - "meta-llama/llama-3.3-70b-instruct"
+    - "openai/gpt-4o-mini"
+    - "meta-llama/llama-3.3-70b-instruct"
 
     
 
@@ -64,7 +64,6 @@ generation:
   reasoning_effort: {}  # empty by default, add per-model overrides:
   reasoning_effort:
     "google/gemini-3.1-flash-lite": "low"
-  #   "allenai/olmo-3.1-32b-think": "medium"
 
 paths:
   data_dir: "data/processed"
