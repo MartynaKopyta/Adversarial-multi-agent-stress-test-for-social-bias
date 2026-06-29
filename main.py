@@ -1,7 +1,7 @@
 """
 main.py
 
-Entry point for the adversarial debate framework.
+Entry point for the stress-test framework.
 Parses CLI arguments, loads config, runs the experiment.
 
 Usage:
@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Adversarial multi-agent bias stress-test framework.",
+        description="Stress-test framework for evaluating multi-agent systems under adversarial conditions.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Run modes:
@@ -125,7 +125,7 @@ async def main() -> int:
 
     # --- Set up logging ---
     setup_logging(config.paths.logs_dir, run_mode=mode.value)
-    logger.info("=== Adversarial Debate Framework ===")
+    logger.info("=== Stress-Test Framework ===")
     logger.info("Mode: %s", mode.value)
     if args.suppress_probe_warnings:
         logging.getLogger("src.engine.probes").setLevel(logging.ERROR)
@@ -151,6 +151,17 @@ async def main() -> int:
         return 1
 
     logger.info("Loaded %d openers.", len(openers))
+    matching = [o for o in openers if o.bias_type in config.experiment.bias_types]
+    if not matching:
+        logger.error(
+            "No loaded openers match configured bias_types %s. "
+            "Bias types actually present in the loaded data: %s. "
+            "Check experiment.bias_types and paths.data_files in %s.",
+            config.experiment.bias_types,
+            sorted({o.bias_type for o in openers}),
+            args.config,
+        )
+        return 1
 
     # --- Run conversations ---
     rate_limiter = RateLimiter(

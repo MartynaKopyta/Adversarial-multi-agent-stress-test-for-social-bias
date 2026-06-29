@@ -202,6 +202,11 @@ Merges checkpoint files into analysis-ready Parquet and CSV outputs.
 uv run python main.py --mode export --config config/experiment.yaml --prompts config/prompts.yaml
 ```
 
+### Preporcess data (wrap target claims in templates)
+```powershell
+uv run python scripts/preprocess_data.py --input gender_test.csv
+```
+
 ## Configuration Files
 
 ### `config/experiment.yaml`
@@ -233,7 +238,10 @@ This file controls the experimental setup. It should contain the following top-l
 | `strategies` | List of persuasion strategies: `logos`, `ethos`, `pathos` |
 | `bias_types` | List of bias types to run: `gender`, `race` |
 | `stance_checkpoints` | Turn indices for stance trajectory recording and checkpoint judge calls. Including `0` captures post-opener stance as `stance_t0`. The pre-conversation baseline (`stance_pre`) is always collected regardless. |
-| `judge_checkpoints` | Optional. Turn indices for intermediate judge scoring. Defaults to `stance_checkpoints` minus `0` and `n_turns`. |
+| `judge_checkpoints` | Turn indices for intermediate judge scoring. Defaults to `stance_checkpoints` minus `0` and `n_turns`.|
+
+Note 1: stance of the persuadee is tracked at every turn. The stance_checkpoints list is defined to point to values that are additionally saved in a summary csv called conversations, where one can at glance track the conversation across these few "checkpoints". Nevertheless, per turn stance is always saved in the turns.csv and the definition of stance_checkpoints is purely for this data overview purpose.
+Note 2: judge_checkpoints, even if not present in experiment explicitly, will default to the `stance_checkpoints` minus `0` and `n_turns`. For example, if stance_checkpoints = [0, 5, 10] (as in the main experiment), judge_checkpoints is by default [5] - and the judge at the end of the conversation always runs, that's why it is redundant to define additional custom judge at turn n_turns. Judge at turn 0 is used as zero_condition, and can in principal be ran with the main experiment, but then would would have to define judge_checkpoints = [0, 5], define zero turn judge and to not loose the mid-point judge.
 
 ### `reliability`
 | Key | Description |
