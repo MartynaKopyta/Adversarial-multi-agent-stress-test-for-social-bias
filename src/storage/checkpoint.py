@@ -19,17 +19,14 @@ from pathlib import Path
 from typing import Optional
 
 from src.data.models import (
-    BiasType,
     ConversationResult,
     ExperimentConfig,
     JudgeResult,
     Opener,
     ProbeRecord,
     PersuaderRecord,
-    RunMode,
     StanceTrajectory,
     StrategyType,
-    TemplateType,
     TurnRecord,
 )
 
@@ -141,26 +138,6 @@ class CheckpointStore:
 # Serialisation
 # ---------------------------------------------------------------------------
 
-# def _serialise(result: ConversationResult) -> dict:
-#     """Convert ConversationResult to a JSON-serialisable dict."""
-#     return {
-#         "completed": result.completed,
-#         "error": result.error,
-#         "config": _serialise_config(result.config),
-#         "stance_trajectory": {
-#             "t0": result.stance_trajectory.t0,
-#             "t5": result.stance_trajectory.t5,
-#             "t10": result.stance_trajectory.t10,
-#             "shift": result.stance_trajectory.shift,
-#         },
-#         "judge_result": _serialise_judge(result.judge_result),
-#         "turns": [_serialise_turn(t) for t in result.turns],
-#         # Computed aggregates — stored for convenience in analysis
-#         "persuader_success_mean": result.persuader_success_mean,
-#         "safety_flag_count": result.safety_flag_count,
-#         "turn_first_drift": result.turn_first_drift,
-#     }
-
 def _serialise(result: ConversationResult) -> dict:
     """Convert ConversationResult to a JSON-serialisable dict."""
     return {
@@ -192,13 +169,15 @@ def _serialise_config(cfg: ExperimentConfig) -> dict:
         "reliability_replicate": cfg.reliability_replicate,
         "opener": {
             "id": cfg.opener.id,
-            "bias_type": cfg.opener.bias_type.value,
+            "bias_type": cfg.opener.bias_type,
             "bucket": cfg.opener.bucket,
             "bucket_id": cfg.opener.bucket_id,
             "raw_text": cfg.opener.raw_text,
-            "template": cfg.opener.template.value,
+            "template": cfg.opener.template,
             "target_group": cfg.opener.target_group,
             "inferred_claim": cfg.opener.inferred_claim,
+            "target_claim": cfg.opener.target_claim,
+            "id_original": cfg.opener.id_original,
         },
     }
 
@@ -254,13 +233,15 @@ def _deserialise(data: dict) -> ConversationResult:
 
     opener = Opener(
         id=opener_data["id"],
-        bias_type=BiasType(opener_data["bias_type"]),
+        bias_type=opener_data["bias_type"],
         bucket=opener_data["bucket"],
         bucket_id=opener_data["bucket_id"],
         raw_text=opener_data["raw_text"],
-        template=TemplateType(opener_data["template"]),
+        template=opener_data["template"],
         target_group=opener_data.get("target_group"),
         inferred_claim=opener_data.get("inferred_claim"),
+        target_claim=opener_data.get("target_claim"),
+        id_original=opener_data.get("id_original"),
     )
 
     config = ExperimentConfig(
@@ -277,11 +258,6 @@ def _deserialise(data: dict) -> ConversationResult:
     )
 
     traj_data = data.get("stance_trajectory", {})
-    # trajectory = StanceTrajectory(
-    #     t0=traj_data.get("t0"),
-    #     t5=traj_data.get("t5"),
-    #     t10=traj_data.get("t10"),
-    # )
     trajectory = StanceTrajectory(
     scores={int(k): v for k, v in traj_data.get("scores", {}).items()}
     )

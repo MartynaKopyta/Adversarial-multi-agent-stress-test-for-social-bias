@@ -14,7 +14,7 @@ from typing import Optional
 
 import yaml
 
-from src.data.models import StrategyType, BiasType, RunMode
+from src.data.models import StrategyType, RunMode
 
 
 # ---------------------------------------------------------------------------
@@ -33,9 +33,10 @@ class ModelsConfig:
 class ExperimentStructureConfig:
     n_turns: int
     strategies: list[StrategyType]
-    bias_types: list[BiasType]
+    bias_types: list[str]
     stance_checkpoints: list[int]
     judge_checkpoints: list[int]
+    claim_source: str = "inferred"
 
 
 @dataclass
@@ -78,9 +79,7 @@ class GenerationConfig:
 
 @dataclass
 class PathsConfig:
-    data_dir: Path
-    gender_file: Path
-    race_file: Path
+    data_files: list[Path]
     results_dir: Path
     checkpoints_dir: Path
     final_dir: Path
@@ -160,9 +159,10 @@ def load_config(
     experiment = ExperimentStructureConfig(
         n_turns=n_turns,
         strategies=[StrategyType(s) for s in exp["experiment"]["strategies"]],
-        bias_types=[BiasType(b) for b in exp["experiment"]["bias_types"]],
+        bias_types=[str(b).strip().lower() for b in exp["experiment"]["bias_types"]],
         stance_checkpoints=stance_checkpoints,
         judge_checkpoints=judge_checkpoints,
+        claim_source=exp["experiment"].get("claim_source", "inferred"),
     )
 
     reliability = ReliabilityConfig(**exp["reliability"])
@@ -183,9 +183,7 @@ def load_config(
 
     paths_raw = exp["paths"]
     paths = PathsConfig(
-        data_dir=Path(paths_raw["data_dir"]),
-        gender_file=Path(paths_raw["gender_file"]),
-        race_file=Path(paths_raw["race_file"]),
+        data_files=[Path(p) for p in (paths_raw.get("data_files") or [])],
         results_dir=Path(paths_raw["results_dir"]),
         checkpoints_dir=Path(paths_raw["checkpoints_dir"]),
         final_dir=Path(paths_raw["final_dir"]),
@@ -237,6 +235,15 @@ def _validate(config: AppConfig) -> None:
 
     if not config.models.persuadee:
         raise ValueError("At least one persuadee model must be specified")
+    
+    if not config.paths.data_files:
+        raise ValueError("At least one data file must be specified in paths.data_files")
+    
+    if config.experiment.claim_source not in ("inferred", "dataset"):
+        raise ValueError(
+            f"claim_source must be 'inferred' or 'dataset', "
+            f"got {config.experiment.claim_source!r}"
+        )
 
     invalid_checkpoints = [
         c for c in config.experiment.stance_checkpoints

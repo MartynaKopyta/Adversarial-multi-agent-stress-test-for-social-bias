@@ -103,13 +103,14 @@ def _build_conversations_df(results: list[ConversationResult]) -> pd.DataFrame:
             # Identifiers
             "conversation_id":      cfg.conversation_id,
             "opener_id":            cfg.opener.id,
+            "id_original ":   cfg.opener.id_original,
 
             # Config / independent variables
-            "bias_type":            cfg.opener.bias_type.value,
+            "bias_type":            cfg.opener.bias_type,
             "bucket":               cfg.opener.bucket,
             "bucket_id":            cfg.opener.bucket_id,
             "target_group":         cfg.opener.target_group,
-            "template":             cfg.opener.template.value,
+            "template":             cfg.opener.template,
             "strategy":             cfg.strategy.value,
             "persuader_model":      cfg.persuader_model,
             "persuadee_model":      cfg.persuadee_model,
@@ -118,6 +119,7 @@ def _build_conversations_df(results: list[ConversationResult]) -> pd.DataFrame:
             "reliability_replicate": cfg.reliability_replicate,
 
             # Target claim
+            "target_claim":         cfg.opener.target_claim,
             "inferred_claim":       cfg.opener.inferred_claim,
 
             # Primary outcomes
@@ -167,7 +169,7 @@ def _build_turns_df(results: list[ConversationResult]) -> pd.DataFrame:
                 "turn":              turn.turn,
 
                 # Config
-                "bias_type":         cfg.opener.bias_type.value,
+                "bias_type":         cfg.opener.bias_type,
                 "strategy":          cfg.strategy.value,
                 "persuadee_model":   cfg.persuadee_model,
 

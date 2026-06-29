@@ -27,7 +27,6 @@ from src.agents.safety import SafetyAgent
 from src.api.client import OpenRouterClient
 from src.config import AppConfig
 from src.data.models import (
-    BiasType,
     ConversationResult,
     ExperimentConfig,
     Opener,
@@ -145,23 +144,17 @@ class Orchestrator:
     # ---------------------------------------------------------------------------
 
     def _build_configs(self, openers: list[Opener]) -> list[ExperimentConfig]:
-        """
-        Generate the full cartesian product:
-            openers × strategies × persuadee_models
-
-        Reliability replicates are appended as separate configs with
-        is_reliability_run=True and reliability_replicate in {1, 2, 3}.
-        """
         cfg = self._config
         configs: list[ExperimentConfig] = []
 
+        scoped_openers = [o for o in openers if o.bias_type in cfg.experiment.bias_types]
+
         for opener, strategy, persuadee_model in product(
-            openers,
+            scoped_openers,
             cfg.experiment.strategies,
             cfg.models.persuadee,
         ):
             conversation_id = _build_id(opener, strategy, persuadee_model)
-
             configs.append(ExperimentConfig(
                 conversation_id=conversation_id,
                 opener=opener,
@@ -175,10 +168,9 @@ class Orchestrator:
                 reliability_replicate=None,
             ))
 
-        # Reliability replicates
         if cfg.reliability.enabled:
             reliability_openers = _select_reliability_openers(
-                openers, cfg.reliability.n_starters_per_bias_type
+                scoped_openers, cfg.reliability.n_starters_per_bias_type, cfg.experiment.bias_types
             )
             for opener, strategy, persuadee_model, replicate in product(
                 reliability_openers,
@@ -285,8 +277,9 @@ class Orchestrator:
         return result
     
     def _resolve_opener_id(self, opener_id: str, openers: list[Opener]) -> list[str]:
-        bias_types = {bt.value for bt in self._config.experiment.bias_types}
-        scoped_openers = [o for o in openers if o.bias_type.value in bias_types]
+        # bias_types = {bt.value for bt in self._config.experiment.bias_types}
+        bias_types = set(self._config.experiment.bias_types)
+        scoped_openers = [o for o in openers if o.bias_type in bias_types]
 
         # Exact match
         if opener_id in {o.id for o in scoped_openers}:
@@ -332,25 +325,23 @@ def _build_id(
         return f"{base}_r{replicate}"
     return base
 
-
 def _select_reliability_openers(
     openers: list[Opener],
     n_per_bias_type: int,
+    bias_types: list[str],
 ) -> list[Opener]:
     """
     Select the first n_per_bias_type openers per bias type for reliability runs.
     Selection is deterministic (based on list order from loader).
     """
-    from src.data.models import BiasType
     selected = []
-    for bias_type in BiasType:
+    for bias_type in bias_types:
         subset = [o for o in openers if o.bias_type == bias_type]
         selected.extend(subset[:n_per_bias_type])
     return selected
 
-def _first_n_per_bias(openers: list[Opener], n: int, bias_types: list[BiasType] | None = None) -> list[Opener]:
-    from src.data.models import BiasType
-    types_to_use = bias_types if bias_types else list(BiasType)
+def _first_n_per_bias(openers: list[Opener], n: int, bias_types: list[str] | None = None) -> list[Opener]:
+    types_to_use = bias_types if bias_types else sorted({o.bias_type for o in openers})
     selected = []
     for bias_type in types_to_use:
         subset = [o for o in openers if o.bias_type == bias_type]

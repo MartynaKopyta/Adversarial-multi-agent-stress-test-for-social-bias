@@ -4,14 +4,14 @@ src/data/loader.py
 Loads processed opener CSVs into typed Opener dataclasses.
 Expects columns produced by the data preparation notebook:
   - id:          unique identifier e.g. "gender_001"
-  - bias_type:   "gender" or "race"
+  - bias_type:   e.g. "gender" or "race"
   - bucket:      human-readable bucket label e.g. "women"
   - bucket_id:   integer bucket index
   - raw_text:    the formatted question as it will be sent
-  - template:    one of the TemplateType values
+  - template:    defined tempate name
 
 Supports two external data scenarios (Scenario A / B)
-via the preprocessor module — not invoked here by default.
+via the preprocessor module - not invoked here by default.
 """
 
 from __future__ import annotations
@@ -20,46 +20,46 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-
+from collections import Counter
 from src.config import AppConfig
-from src.data.models import BiasType, Opener, TemplateType
+from src.data.models import Opener
 
 logger = logging.getLogger(__name__)
 
 # Required columns in each CSV
 REQUIRED_COLUMNS = {"id", "bias_type", "bucket", "bucket_id", "raw_text", "template"}
 
-
 def load_openers(config: AppConfig) -> list[Opener]:
     """
-    Load all openers from gender.csv and race.csv.
+    Load all openers from every file listed in config.paths.data_files.
 
     Args:
-        config: AppConfig with paths to CSV files.
+        config: AppConfig with a list of CSV file paths.
 
     Returns:
-        Combined list of Opener objects, gender first then race.
+        Combined list of Opener objects, in the order the files are listed.
 
     Raises:
-        FileNotFoundError: If either CSV does not exist.
+        FileNotFoundError: If any listed file does not exist.
         ValueError:        If required columns are missing or values are invalid.
     """
-    gender_openers = _load_file(config.paths.gender_file, expected_bias_type=BiasType.GENDER)
-    race_openers = _load_file(config.paths.race_file, expected_bias_type=BiasType.RACE)
+    all_openers: list[Opener] = []
 
-    all_openers = gender_openers + race_openers
+    for path in config.paths.data_files:
+        all_openers.extend(_load_file(path))
 
+    counts = Counter(o.bias_type for o in all_openers)
+    counts_str = ", ".join(f"{n} {bt}" for bt, n in counts.items())
     logger.info(
-        "Loaded %d openers total (%d gender, %d race).",
-        len(all_openers), len(gender_openers), len(race_openers),
+        "Loaded %d openers total (%s).",
+        len(all_openers), counts_str,
     )
 
     _validate_ids_unique(all_openers)
 
     return all_openers
 
-
-def _load_file(path: Path, expected_bias_type: BiasType) -> list[Opener]:
+def _load_file(path: Path) -> list[Opener]:
     """Load one CSV file and return a list of Opener objects."""
     if not path.exists():
         raise FileNotFoundError(f"Opener file not found: {path}")
@@ -78,7 +78,7 @@ def _load_file(path: Path, expected_bias_type: BiasType) -> list[Opener]:
 
     for idx, row in df.iterrows():
         try:
-            opener = _row_to_opener(row, expected_bias_type)
+            opener = _row_to_opener(row)
             openers.append(opener)
         except (ValueError, KeyError) as e:
             errors.append(f"Row {idx}: {e}")
@@ -92,31 +92,23 @@ def _load_file(path: Path, expected_bias_type: BiasType) -> list[Opener]:
     logger.debug("Loaded %d openers from %s.", len(openers), path.name)
     return openers
 
-
-def _row_to_opener(row: pd.Series, expected_bias_type: BiasType) -> Opener:
+def _row_to_opener(row: pd.Series) -> Opener:
     """Convert one CSV row to an Opener dataclass."""
-    bias_type = BiasType(str(row["bias_type"]).strip().lower())
-    if bias_type != expected_bias_type:
-        raise ValueError(
-            f"bias_type '{bias_type.value}' does not match expected "
-            f"'{expected_bias_type.value}' for this file."
-        )
-
-    template_str = str(row["template"]).strip().lower()
-    try:
-        template = TemplateType(template_str)
-    except ValueError:
-        valid = [t.value for t in TemplateType]
-        raise ValueError(
-            f"Invalid template '{template_str}'. Must be one of: {valid}"
-        )
+    bias_type = str(row["bias_type"]).strip().lower()
+    template = str(row["template"]).strip().lower()
 
     raw_text = str(row["raw_text"]).strip()
     if not raw_text:
         raise ValueError("raw_text is empty.")
-    
+
     raw_tg = row["target_group"] if "target_group" in row.index else ""
     target_group = str(raw_tg).strip() or None
+
+    raw_claim = row["target_claim"] if "target_claim" in row.index else ""
+    target_claim = str(raw_claim).strip() or None
+
+    raw_id_original = row["id_original"] if "id_original" in row.index else ""
+    id_original = str(raw_id_original).strip() or None
 
     return Opener(
         id=str(row["id"]).strip(),
@@ -126,8 +118,9 @@ def _row_to_opener(row: pd.Series, expected_bias_type: BiasType) -> Opener:
         raw_text=raw_text,
         template=template,
         target_group=target_group,
+        target_claim=target_claim,
+        id_original=id_original,
         inferred_claim=None,  # populated by persuader at conversation start
-
     )
 
 

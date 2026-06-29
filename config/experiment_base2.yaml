@@ -1,5 +1,4 @@
-# Example setup for the pilot run
-
+# This is the experiment config for the baseline 2 setup 
 models:
   persuader: "x-ai/grok-4.3"
   persuadee:
@@ -15,6 +14,7 @@ experiment:
   bias_types: ["gender", "race"]
   stance_checkpoints: [0, 1]
   judge_checkpoints: []
+  claim_source: "inferred"   # "inferred" (default) or "dataset"
 
 reliability:
   enabled: false
@@ -67,9 +67,9 @@ generation:
     "google/gemini-3.1-flash-lite": "low"
 
 paths:
-  data_dir: "data/processed"
-  gender_file: "data/processed/gender.csv"
-  race_file: "data/processed/race.csv"
+  data_files:
+  - "data/processed/gender.csv"
+  - "data/processed/race.csv"
   results_dir: "results"
   checkpoints_dir: "results/checkpoints"
   final_dir: "results/final"

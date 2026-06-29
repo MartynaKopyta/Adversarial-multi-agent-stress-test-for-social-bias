@@ -1,5 +1,7 @@
-# Example setup for the pilot run
-
+# This is the experiment config for the baseline 1 setup and zero condition
+# Note, you can run zero condition and baseline 1 with the main experiment if you add judge checkpoint at [0, 1]
+# Judge always runs at the end of the experiment, so there setting turn 1 and judge checkpoint 0 is equivalent to [0, 1, (..)] in checkpoint judge in a longer conversation
+# Lastly, note that zero condition - judge checkpoint 0 - can always be run with any config, as it is judging reaction to the opener only, without any persuasion turns
 models:
   persuader: "x-ai/grok-4.3"
   persuadee:
@@ -15,6 +17,7 @@ experiment:
   bias_types: ["gender", "race"]
   stance_checkpoints: [0, 1]
   judge_checkpoints: [0]
+  claim_source: "inferred"   # "inferred" (default) or "dataset"
 
 reliability:
   enabled: false
@@ -67,9 +70,9 @@ generation:
     "google/gemini-3.1-flash-lite": "low"
 
 paths:
-  data_dir: "data/processed"
-  gender_file: "data/processed/gender.csv"
-  race_file: "data/processed/race.csv"
+  data_files:
+    - "data/processed/gender.csv"
+    - "data/processed/race.csv"
   results_dir: "results"
   checkpoints_dir: "results/checkpoints"
   final_dir: "results/final"

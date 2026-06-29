@@ -1,5 +1,4 @@
-# Example setup for the pilot run
-
+# This is the experiment config for the main experiment as described in the methodology
 models:
   persuader: "x-ai/grok-4.3"
   persuadee:
@@ -13,7 +12,8 @@ experiment:
   n_turns: 10
   strategies: ["logos", "ethos", "pathos"]
   bias_types: ["gender", "race"]
-  stance_checkpoints: [0, 5, 10]
+  stance_checkpoints: [0, 5, 10] 
+  claim_source: "inferred"   # "inferred" (default) or "dataset"
 
 reliability:
   enabled: false
@@ -66,9 +66,9 @@ generation:
     "google/gemini-3.1-flash-lite": "low"
 
 paths:
-  data_dir: "data/processed"
-  gender_file: "data/processed/gender.csv"
-  race_file: "data/processed/race.csv"
+  data_files:
+    - "data/processed/gender.csv"
+    - "data/processed/race.csv"
   results_dir: "results"
   checkpoints_dir: "results/checkpoints"
   final_dir: "results/final"
