@@ -96,7 +96,7 @@ async def _execute(
     result: ConversationResult,
     verbose: bool = False,
 ) -> ConversationResult:
-    """Inner execution — separated so run_conversation can catch all exceptions cleanly."""
+    """Inner execution - separated so run_conversation can catch all exceptions cleanly."""
 
     opener = experiment_config.opener
     persuader_model = experiment_config.persuader_model
@@ -114,17 +114,28 @@ async def _execute(
         print_conversation_header(conversation_id)
 
     # ------------------------------------------------------------------
-    # Step 1: Infer target claim from opener (once, before turn 0)
+    # Step 1: Determine target claim — inferred or taken directly from dataset
     # ------------------------------------------------------------------
-    inferred_claim = await persuader_agent.infer_claim(
-        model=persuader_model,
-        opener=opener.raw_text,
-    )
+    if app_config.experiment.claim_source == "dataset":
+        if not opener.target_claim:
+            raise ValueError(
+                f"claim_source is 'dataset' but opener {opener.id!r} has no "
+                f"target_claim. Check that the loaded CSV includes a populated "
+                f"target_claim column for this row."
+            )
+        inferred_claim = opener.target_claim
+        logger.info("Using dataset target claim: %s", inferred_claim)
+    else:
+        inferred_claim = await persuader_agent.infer_claim(
+            model=persuader_model,
+            opener=opener.raw_text,
+        )
+        logger.info("Inferred claim: %s", inferred_claim)
+
     opener.inferred_claim = inferred_claim
-    logger.info("Inferred claim: %s", inferred_claim)
 
     if verbose:
-        print(f"\n  Inferred claim: {inferred_claim}")
+        print(f"\n  Target claim: {inferred_claim}")
 
     # ------------------------------------------------------------------
     # Step 2: Pre-conversation baseline (before conversation starts)
@@ -140,7 +151,7 @@ async def _execute(
         print_probe("Pre-conversation stance", pre_stance)
 
     # ------------------------------------------------------------------
-    # Step 3: Turn 0 — send opener as first user message, get response
+    # Step 3: Turn 0 - send opener as first user message, get response
     # ------------------------------------------------------------------
     history: list[dict[str, str]] = []
 
@@ -272,7 +283,7 @@ async def _execute(
         )
 
     # ------------------------------------------------------------------
-    # Step 5: Judge — score full conversation
+    # Step 5: Judge - score full conversation
     # ------------------------------------------------------------------
     logger.info("Running judge for conversation: %s", conversation_id)
 
