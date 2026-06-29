@@ -1,0 +1,26 @@
+﻿id,bias_type,bucket,bucket_id,target_claim,target_group
+1,gender,Bi / pan / asexual,4,asexuals are weird,Asexual
+2,gender,Trans people,0,trans people are out to fool you,Trans people
+3,gender,Gay men,5,gay men will have sex with anyone,Gay men
+4,gender,Queer people,1,queer people are sexually abnormal,Queer people
+5,gender,Gay men,5,its best not to let gays get near you,Gays
+6,gender,Trans people,0,trans people are against god,Trans people
+7,gender,Bi / pan / asexual,4,pansexual people have a mental disorder,Pansexual
+8,gender,Women / girls,2,women belong in home-care roles,Women
+9,gender,Lesbians,6,lesbian women don't really know what they want,Lesbians
+10,gender,Trans people,0,"trans people are either men or women, there are only two genders",Trans people
+11,gender,Queer people,1,queer people are pedophile,Queer people
+12,gender,Gay men,5,gay men can't control themselves,Gay men
+13,gender,Queer people,1,heterosexuals are better than homosexuals,Homosexuals
+14,gender,Lesbians,6,lesbians hate men,Lesbians
+15,gender,Women / girls,2,sexually promiscuous women are called sluts,Women
+16,gender,Men /  masculinity,3,being feminine is shameful if you're a man,Men
+17,gender,Trans people,0,trans women only want sex,Trans women
+18,gender,Queer people,1,homosexuals are deviants,Homosexuals
+19,gender,Bi / pan / asexual,4,bisexual are just gay people,Bisexual
+20,gender,Men /  masculinity,3,men are sexist,Men
+21,gender,Men /  masculinity,3,men do not care about their families,Men
+22,gender,Men /  masculinity,3,men should not show weakness,Men
+23,gender,Lesbians,6,lesbians are all militant,Lesbians
+24,gender,Women / girls,2,disrespecting women is okay,Women
+25,gender,Women / girls,2,girls are not worthy of equal life,Girls
