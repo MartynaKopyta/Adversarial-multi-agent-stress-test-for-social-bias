@@ -5,7 +5,7 @@ Orchestrates all conversations for a given run mode.
 Responsibilities:
   1. Build the full list of ExperimentConfigs from openers × strategies × models
   2. Filter configs according to run mode
-  3. Skip already-completed checkpoints (resume mode)
+  3. Skip already-completed checkpoints 
   4. Dispatch conversations concurrently via asyncio.gather
   5. Save checkpoints after each conversation completes
 
@@ -79,7 +79,7 @@ class Orchestrator:
         )
 
         if parallel is None:
-            parallel = mode in (RunMode.FULL, RunMode.RESUME)
+            parallel = mode == RunMode.FULL
 
         if mode == RunMode.EXPORT:
             logger.info("Export mode — skipping API calls.")
@@ -88,7 +88,15 @@ class Orchestrator:
         if mode == RunMode.DRY_RUN:
             parallel = False  # always override for dry run
             pending = filtered[:1]
-            logger.info("Dry run — limiting to %d conversations, no checkpoints.", len(pending))
+            logger.info("Dry run - limiting to %d conversations, no checkpoints.", len(pending))
+            if pending:
+                logger.info(
+                    "Dry run will use: %s (opener=%s, strategy=%s, persuadee=%s)",
+                    pending[0].conversation_id,
+                    pending[0].opener.id,
+                    pending[0].strategy.value,
+                    pending[0].persuadee_model,
+                )
         else:
             pending = [
                 cfg for cfg in filtered
@@ -101,7 +109,7 @@ class Orchestrator:
             )
 
             if not pending:
-                logger.info("Nothing to run — all conversations already complete.")
+                logger.info("Nothing to run - all conversations already complete.")
                 return self._checkpoint_store.load_all()
         
         if parallel:
@@ -208,7 +216,7 @@ class Orchestrator:
     ) -> list[ExperimentConfig]:
         """Filter configs according to run mode."""
 
-        if mode in (RunMode.FULL, RunMode.RESUME, RunMode.EXPORT):
+        if mode in (RunMode.FULL, RunMode.EXPORT):
             return [c for c in configs if not c.is_reliability_run]
         
         if mode == RunMode.DRY_RUN:
@@ -217,14 +225,68 @@ class Orchestrator:
                 base = [c for c in base if c.opener.id in specific_opener_ids]
             return base
 
+        # if mode == RunMode.PILOT:
+        #     if specific_opener_ids:
+        #         return [
+        #             c for c in configs
+        #             if c.opener.id in specific_opener_ids
+        #             and not c.is_reliability_run
+        #         ]
+        #     pilot_cfg = self._config.pilot
+        #     pilot_openers = {
+        #         o.id for o in _first_n_per_bias(
+        #             [c.opener for c in configs],
+        #             pilot_cfg.n_starters,
+        #             bias_types=self._config.experiment.bias_types,
+        #         )
+        #     }
+        #     return [
+        #         c for c in configs
+        #         if c.opener.id in pilot_openers
+        #         and c.persuadee_model in pilot_cfg.persuadee_models
+        #         and not c.is_reliability_run
+        #     ]
         if mode == RunMode.PILOT:
+            pilot_cfg = self._config.pilot
+
             if specific_opener_ids:
+                seen_ids = set()
+                all_openers = []
+                for c in configs:
+                    if c.is_reliability_run:
+                        continue
+                    if c.opener.id not in seen_ids:
+                        seen_ids.add(c.opener.id)
+                        all_openers.append(c.opener)
+
+                priority_ids = set(specific_opener_ids)
+                priority_openers = [o for o in all_openers if o.id in priority_ids]
+                remaining_openers = [o for o in all_openers if o.id not in priority_ids]
+
+                pilot_openers_list: list[Opener] = []
+                for bias_type in self._config.experiment.bias_types:
+                    priority_subset = [o for o in priority_openers if o.bias_type == bias_type]
+                    n_remaining = max(0, pilot_cfg.n_starters - len(priority_subset))
+                    backfill_subset = [o for o in remaining_openers if o.bias_type == bias_type][:n_remaining]
+                    selected = priority_subset + backfill_subset
+                    pilot_openers_list.extend(selected)
+                    logger.info(
+                        "Pilot [%s]: requested opener(s) %s found %d, backfilled %d more -> %s",
+                        bias_type,
+                        sorted(o.id for o in priority_subset),
+                        len(priority_subset),
+                        len(backfill_subset),
+                        sorted(o.id for o in selected),
+                    )
+
+                pilot_openers = {o.id for o in pilot_openers_list}
                 return [
                     c for c in configs
-                    if c.opener.id in specific_opener_ids
+                    if c.opener.id in pilot_openers
+                    and c.persuadee_model in pilot_cfg.persuadee_models
                     and not c.is_reliability_run
                 ]
-            pilot_cfg = self._config.pilot
+
             pilot_openers = {
                 o.id for o in _first_n_per_bias(
                     [c.opener for c in configs],
@@ -232,6 +294,7 @@ class Orchestrator:
                     bias_types=self._config.experiment.bias_types,
                 )
             }
+            logger.info("Pilot openers selected: %s", sorted(pilot_openers))
             return [
                 c for c in configs
                 if c.opener.id in pilot_openers
@@ -285,7 +348,7 @@ class Orchestrator:
         if opener_id in {o.id for o in scoped_openers}:
             return [opener_id]
 
-        # Try as number — return ALL matches across bias types
+        # Try as number - return ALL matches across bias types
         try:
             padded = str(int(opener_id)).zfill(3)
             matches = [o.id for o in scoped_openers if o.id.endswith(f"_{padded}")]

@@ -25,11 +25,10 @@ class StrategyType(str, Enum):
 
 class RunMode(str, Enum):
     FULL = "full"               # all conversations
-    PILOT = "pilot"             # 9 conversations (3 strategies × 1 model × 1 starter)
-    RELIABILITY = "reliability" # reliability subset (10 starters × 3 runs)
-    RESUME = "resume"           # skip completed checkpoints
+    PILOT = "pilot"             # pilot
+    RELIABILITY = "reliability" # reliability subset 
     EXPORT = "export"           # merge checkpoints only, no API calls
-    DRY_RUN = "dry_run"         # 2-3 conversations, verbose, no saving
+    DRY_RUN = "dry_run"         # verbose, no saving
 
 
 # ---------------------------------------------------------------------------
