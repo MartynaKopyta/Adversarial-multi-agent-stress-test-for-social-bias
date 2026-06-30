@@ -3,17 +3,6 @@ main.py
 
 Entry point for the stress-test framework.
 Parses CLI arguments, loads config, runs the experiment.
-
-Usage:
-    python main.py --mode full
-    python main.py --mode pilot
-    python main.py --mode dry-run
-    python main.py --mode resume
-    python main.py --mode reliability
-    python main.py --mode export
-
-    python main.py --mode full --config config/experiment.yaml
-    python main.py --mode full --prompts config/prompts.yaml
 """
 from __future__ import annotations
 from email import parser
@@ -46,7 +35,6 @@ Run modes:
   full         Run all conversations (skips already-completed checkpoints)
   pilot        Run a small fixed subset for initial validation
   reliability  Run the reliability subset (10 starters × 3 replicates)
-  resume       Alias for full — makes intent explicit when resuming a crashed run
   export       Merge checkpoints into analysis files without running any conversations
   dry-run      Run 3 conversations with verbose output, no checkpoints saved
         """,
@@ -150,7 +138,6 @@ async def main() -> int:
         logger.error("Failed to load openers: %s", e)
         return 1
 
-    logger.info("Loaded %d openers.", len(openers))
     matching = [o for o in openers if o.bias_type in config.experiment.bias_types]
     if not matching:
         logger.error(
