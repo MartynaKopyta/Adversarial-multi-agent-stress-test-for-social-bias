@@ -224,28 +224,7 @@ class Orchestrator:
             if specific_opener_ids:
                 base = [c for c in base if c.opener.id in specific_opener_ids]
             return base
-
-        # if mode == RunMode.PILOT:
-        #     if specific_opener_ids:
-        #         return [
-        #             c for c in configs
-        #             if c.opener.id in specific_opener_ids
-        #             and not c.is_reliability_run
-        #         ]
-        #     pilot_cfg = self._config.pilot
-        #     pilot_openers = {
-        #         o.id for o in _first_n_per_bias(
-        #             [c.opener for c in configs],
-        #             pilot_cfg.n_starters,
-        #             bias_types=self._config.experiment.bias_types,
-        #         )
-        #     }
-        #     return [
-        #         c for c in configs
-        #         if c.opener.id in pilot_openers
-        #         and c.persuadee_model in pilot_cfg.persuadee_models
-        #         and not c.is_reliability_run
-        #     ]
+        
         if mode == RunMode.PILOT:
             pilot_cfg = self._config.pilot
 
