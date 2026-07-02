@@ -397,6 +397,17 @@ Typical exported files include:
 - `conversations.csv`
 - `turns.csv`
 
+## Reproducing the Thesis Experiments
+
+The following configuration files correspond to the experiments reported in the thesis:
+
+| Experiment | Config | Prompts |
+|---|---|---|
+| Main experiment (10-turn, full run) | `config/experiment.yaml` | `config/prompts.yaml` |
+| Baseline 1 (single-turn + turn-0 judge) | `config/experiment_base1.yaml` | `config/prompts.yaml` |
+| Baseline 2 (single-turn, alternative persuader prompt) | `config/experiment_base2.yaml` | `config/prompts_base2.yaml` |
+
+
 ## Data Preprocessing
 
 `scripts/preprocess_data.py` prepares raw opener data into the format expected by the loader. It auto-detects which of two modes to run based on the input file's columns:
