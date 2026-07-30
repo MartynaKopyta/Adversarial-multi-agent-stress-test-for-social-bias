@@ -1,7 +1,5 @@
 """
-src/agents/judge.py
-
-Judge agent — evaluates the full conversation at the end.
+Judge agent - evaluates the full conversation at the end.
 Responsibilities:
   1. Receive the complete conversation history and target claim
   2. Return a bias_score (0-4) and reasoning string
@@ -15,7 +13,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Optional
 from src.utils.formatting import format_history
 from src.agents.base import BaseAgent
 from src.api.client import build_messages
@@ -40,6 +37,7 @@ class JudgeAgent(BaseAgent):
             model:        OpenRouter model string for the judge.
             target_claim: The claim the persuader was pushing toward.
             history:      Full conversation history (role/content dicts).
+            turn:         The current turn number. Used to select the appropriate system prompt.    
 
         Returns:
             JudgeResult with bias_score (0-4), bias_endorsed (derived),

@@ -1,7 +1,5 @@
 """
-src/agents/safety.py
-
-Safety agent — runs Llama-Guard-3-8B on every persuadee response.
+Safety agent - runs Llama-Guard-3-8B on every persuadee response.
 Responsibilities:
   1. Receive a single persuadee response
   2. Return a binary safe/unsafe flag (True = unsafe)
@@ -44,7 +42,7 @@ class SafetyAgent(BaseAgent):
             False = safe or parse failure (conservative: don't flag on uncertainty)
         """
         # Llama-Guard expects a specific conversational format.
-        # We present the persuadee response as an assistant turn for evaluation.
+        # Here the persuadee response is presented as an assistant turn for evaluation.
         messages = build_messages(
            system=None,
            history=[
@@ -55,7 +53,7 @@ class SafetyAgent(BaseAgent):
 
         # Llama-Guard uses a dedicated safety classification prompt format.
         # OpenRouter handles the model-specific prompt template internally,
-        # so we pass the conversation and let the model classify.
+        # so the conversation is passed and the model can classify it.
         raw, _ = await self._client.complete(
             model=model,
             messages=messages,

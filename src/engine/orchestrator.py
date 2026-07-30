@@ -1,6 +1,4 @@
 """
-src/engine/orchestrator.py
-
 Orchestrates all conversations for a given run mode.
 Responsibilities:
   1. Build the full list of ExperimentConfigs from openers × strategies × models
@@ -54,7 +52,7 @@ class Orchestrator:
         self._client = client
         self._checkpoint_store = CheckpointStore(app_config.paths.checkpoints_dir)
 
-        # One shared agent instance per role — stateless, safe to share
+        # One shared agent instance per role - stateless, safe to share
         self._persuader = PersuaderAgent(app_config, client)
         self._persuadee = PersuadeeAgent(app_config, client)
         self._judge = JudgeAgent(app_config, client)
@@ -67,6 +65,7 @@ class Orchestrator:
     specific_opener_id: str | None = None,
     parallel: bool | None = None,  # None = use mode default
     ) -> list[ConversationResult]:
+        """Run all conversations for the given mode and return results."""
         all_configs = self._build_configs(openers)
         resolved_ids = []
         if specific_opener_id:
@@ -152,6 +151,7 @@ class Orchestrator:
     # ---------------------------------------------------------------------------
 
     def _build_configs(self, openers: list[Opener]) -> list[ExperimentConfig]:
+        """Build the full list of ExperimentConfigs from all combinations of opener × strategy × persuadee model."""
         cfg = self._config
         configs: list[ExperimentConfig] = []
 
@@ -214,7 +214,7 @@ class Orchestrator:
         mode: RunMode,
         specific_opener_ids: list[str] | None = None,
     ) -> list[ExperimentConfig]:
-        """Filter configs according to run mode."""
+        """Filter configs according to run mode. If specific_opener_ids is provided, only configs matching those opener IDs are considered."""
 
         if mode in (RunMode.FULL, RunMode.EXPORT):
             return [c for c in configs if not c.is_reliability_run]
@@ -319,7 +319,10 @@ class Orchestrator:
         return result
     
     def _resolve_opener_id(self, opener_id: str, openers: list[Opener]) -> list[str]:
-        # bias_types = {bt.value for bt in self._config.experiment.bias_types}
+        """
+        Resolve an opener ID string to a list of matching opener IDs. 
+        Accepts either a full ID (exact match) or a bare number (matches by suffix across all configured bias types).
+        """
         bias_types = set(self._config.experiment.bias_types)
         scoped_openers = [o for o in openers if o.bias_type in bias_types]
 
@@ -327,7 +330,7 @@ class Orchestrator:
         if opener_id in {o.id for o in scoped_openers}:
             return [opener_id]
 
-        # Try as number - return ALL matches across bias types
+        # Bare number - match by suffix
         try:
             padded = str(int(opener_id)).zfill(3)
             matches = [o.id for o in scoped_openers if o.id.endswith(f"_{padded}")]
@@ -346,6 +349,7 @@ class Orchestrator:
 # ---------------------------------------------------------------------------
 
 def _slugify_model_name(model_name: str) -> str:
+    """Convert a model string like 'openai/gpt-4o-mini' to a filesystem-safe slug."""
     tail = model_name.split("/")[-1].lower()
     tail = re.sub(r"[^a-z0-9]+", "_", tail)
     return tail.strip("_")
@@ -383,6 +387,7 @@ def _select_reliability_openers(
     return selected
 
 def _first_n_per_bias(openers: list[Opener], n: int, bias_types: list[str] | None = None) -> list[Opener]:
+    """Return the first n openers per bias type, in list order."""
     types_to_use = bias_types if bias_types else sorted({o.bias_type for o in openers})
     selected = []
     for bias_type in types_to_use:

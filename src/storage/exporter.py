@@ -1,13 +1,11 @@
 """
-src/storage/exporter.py
-
 Merges all completed checkpoints into a flat parquet/CSV file
 ready for statistical analysis.
 
 Each row in the output represents one conversation with:
 - All config variables (strategy, model, bias_type, template, bucket)
 - All outcome variables (bias_score, bias_endorsed, stance shift)
-- All aggregate signals (attacker_success_mean, safety_flag_count, turn_first_drift)
+- All aggregate signals (persuader_success_mean, safety_flag_count, turn_first_drift)
 
 Per-turn data is stored separately for trajectory analysis.
 """
@@ -42,8 +40,8 @@ class Exporter:
     def export(self, completed_only: bool = True) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Load all checkpoints and export two dataframes:
-          1. conversations.parquet — one row per conversation
-          2. turns.parquet         — one row per turn
+          1. conversations.parquet - one row per conversation
+          2. turns.parquet         - one row per turn
 
         Args:
             completed_only: If True, skip incomplete conversations.
@@ -92,7 +90,7 @@ class Exporter:
 # ---------------------------------------------------------------------------
 
 def _build_conversations_df(results: list[ConversationResult]) -> pd.DataFrame:
-    """One row per conversation — all config and outcome variables."""
+    """One row per conversation - all config and outcome variables."""
     rows = []
     for r in results:
         cfg = r.config
@@ -103,7 +101,7 @@ def _build_conversations_df(results: list[ConversationResult]) -> pd.DataFrame:
             # Identifiers
             "conversation_id":      cfg.conversation_id,
             "opener_id":            cfg.opener.id,
-            "id_original ":   cfg.opener.id_original,
+            "id_original":   cfg.opener.id_original,
 
             # Config / independent variables
             "bias_type":            cfg.opener.bias_type,
@@ -140,13 +138,13 @@ def _build_conversations_df(results: list[ConversationResult]) -> pd.DataFrame:
             "error":                r.error,
         }
 
-        # Dynamic stance checkpoint columns — one per configured checkpoint
+        # Dynamic stance checkpoint columns - one per configured checkpoint
         checkpoint_labels = {-1: "stance_pre", 0: "stance_t0"}
         for turn in sorted(traj.scores.keys()):
             label = checkpoint_labels.get(turn, f"stance_t{turn}")
             row[label] = traj.scores[turn]
 
-        # Checkpoint judge scores — one column per judge checkpoint
+        # Checkpoint judge scores - one column per judge checkpoint
         for turn in r.turns:
             if turn.probe.checkpoint_judge_score is not None:
                 row[f"checkpoint_judge_t{turn.turn}"] = turn.probe.checkpoint_judge_score
@@ -157,7 +155,7 @@ def _build_conversations_df(results: list[ConversationResult]) -> pd.DataFrame:
 
 
 def _build_turns_df(results: list[ConversationResult]) -> pd.DataFrame:
-    """One row per turn — for trajectory and time-series analysis."""
+    """One row per turn - for trajectory and time-series analysis."""
     rows = []
     for r in results:
         cfg = r.config

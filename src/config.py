@@ -1,6 +1,4 @@
 """
-src/config.py
-
 Loads config/experiment.yaml and config/prompts.yaml into typed dataclasses.
 All other modules import from here — nothing else reads YAML directly.
 """
@@ -74,7 +72,8 @@ class GenerationConfig:
     max_tokens_probes: int
     top_p: float = 1.0
     frequency_penalty: float = 0.0
-    reasoning_effort: dict[str, str] = field(default_factory=dict)  # optional per-model override for reasoning effort (e.g. "low", "medium", "high")
+    # Optional per-model reasoning effort override e.g. {"google/gemini": "low"}
+    reasoning_effort: dict[str, str] = field(default_factory=dict) 
 
 
 @dataclass
@@ -150,6 +149,7 @@ def load_config(
     stance_checkpoints = exp["experiment"]["stance_checkpoints"]
     raw_judge_checkpoints = exp["experiment"].get("judge_checkpoints")
 
+    # Default: stance_checkpoints minus turn 0 and the final turn
     judge_checkpoints = (
         raw_judge_checkpoints
         if raw_judge_checkpoints is not None
@@ -229,7 +229,7 @@ def _assert_exists(path: Path) -> None:
 
 
 def _validate(config: AppConfig) -> None:
-    """Basic sanity checks. Raises ValueError on failure."""
+    """Check required fields, value ranges, and that the API key is set."""
     if config.experiment.n_turns < 1:
         raise ValueError("n_turns must be >= 1")
 

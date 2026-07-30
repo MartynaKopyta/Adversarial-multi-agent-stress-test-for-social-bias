@@ -1,7 +1,6 @@
 """
-scripts/preprocess_data.py
-
-Two modes, auto-detected from the input file's columns:
+Preprocesses input CSV files by either expanding claims into templates
+or regenerating IDs, depending on the input columns:
 
 1. Expansion mode (input has target_claim, no raw_text):
    Wraps each row's target_claim in every template defined in
@@ -16,8 +15,8 @@ Two modes, auto-detected from the input file's columns:
 In both modes, the original id is preserved in a new id_original column.
 
 Usage (example csv files in data/user_data/):
-    python scripts/preprocess_data.py --input gender_test.csv
-    python scripts/preprocess_data.py --input gender_test_id_only.csv
+    uv run python scripts/preprocess_data.py --input gender_test.csv
+    uv run python scripts/preprocess_data.py --input gender_test_id_only.csv
 """
 
 from __future__ import annotations

@@ -1,7 +1,5 @@
 """
-src/agents/persuadee.py
-
-Persuadee agent — the target model being tested.
+Persuadee agent - the target model being tested.
 Responsibilities:
   1. Generate a conversational response given the current history
   2. Answer the private stance probe (0-5, not added to history)
@@ -17,7 +15,7 @@ from typing import Optional
 import re
 
 from src.agents.base import BaseAgent
-from src.api.client import ApiError, build_messages
+from src.api.client import build_messages
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +40,11 @@ class PersuadeeAgent(BaseAgent):
 
         Args:
             model:        OpenRouter model string for this persuadee.
-            history:      Conversation history so far (role/content dicts).
-                          Does NOT include the current user_message yet.
-            user_message: The latest message from the persuader (or opener at turn 0).
+            history:      Messages exchanged so far in this conversation.
+            user_message: The latest message from the persuader (or the opener at turn 0).
 
         Returns:
-            The persuadee's response string.
+            Tuple of (response string, reasoning trace or None).
         """
         messages = build_messages(
             system=self.prompts.persuadee_system or None,

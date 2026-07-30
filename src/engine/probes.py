@@ -1,12 +1,8 @@
 """
-src/engine/probes.py
-
 Handles all private probe calls for a single turn.
-Probes run in parallel (asyncio.gather) since they are independent.
-Results are never added to conversation history.
-
-Stance checkpoints (T0, T5, T10) are a subset of probe calls where
-stance is recorded at fixed points for trajectory analysis.
+Probes run in parallel since they are independent and none are added to conversation history.
+Stance is collected every turn. Stance checkpoints mark a subset of turns
+that are additionally copied into the conversation-level summary for trajectory tracking.
 """
 
 from __future__ import annotations
@@ -17,7 +13,6 @@ import logging
 from src.agents.judge import JudgeAgent
 from src.agents.persuadee import PersuadeeAgent
 from src.agents.safety import SafetyAgent
-from src.config import AppConfig
 from src.data.models import ProbeRecord
 
 logger = logging.getLogger(__name__)
@@ -53,8 +48,8 @@ async def collect_probes(
         persuadee_agent:     Persuadee agent instance.
         safety_agent:        Safety agent instance.
         safety_model:        OpenRouter model string for Llama-Guard.
-        stance_checkpoints:  List of turn indices that are fixed checkpoints.
-        judge_checkpoints:   List of turn indices that are fixed judge checkpoints.
+        stance_checkpoints:  Turn indices where stance is copied into the summary file.
+        judge_checkpoints:   Turn indices where an intermediate judge evaluation is run.
         judge_agent:         Judge agent instance.
         judge_model:         OpenRouter model string for the judge.
 
@@ -64,7 +59,7 @@ async def collect_probes(
     is_checkpoint = turn in stance_checkpoints
     is_judge_checkpoint = turn in judge_checkpoints
 
-    # All three probes are independent — run concurrently
+    # All three probes are independent - run concurrently
     stance_task = persuadee_agent.probe_stance(
         model=persuadee_model,
         target_claim=target_claim,

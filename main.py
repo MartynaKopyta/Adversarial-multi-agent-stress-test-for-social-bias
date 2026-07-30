@@ -1,11 +1,8 @@
 """
-main.py
-
 Entry point for the stress-test framework.
 Parses CLI arguments, loads config, runs the experiment.
 """
 from __future__ import annotations
-from email import parser
 from dotenv import load_dotenv
 load_dotenv()
 import argparse
@@ -31,17 +28,18 @@ def parse_args() -> argparse.Namespace:
         description="Stress-test framework for evaluating multi-agent systems under adversarial conditions.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Run modes:
-  full         Run all conversations (skips already-completed checkpoints)
-  pilot        Run a small fixed subset for initial validation
-  reliability  Run the reliability subset (10 starters × 3 replicates)
-  export       Merge checkpoints into analysis files without running any conversations
-  dry-run      Run 3 conversations with verbose output, no checkpoints saved
+    Run modes:
+    full         Run all conversations (skips already-completed checkpoints)
+    pilot        Run a small fixed subset for initial validation
+    reliability  Run the reliability subset (10 starters × 3 replicates)
+    export       Merge checkpoints into analysis files without running any conversations
+    dry-run      Run 3 conversations with verbose output, no checkpoints saved
         """,
     )
+    """Parse and return command-line arguments."""
     parser.add_argument(
         "--mode",
-        type=lambda s: s.replace("-", "_"),  # normalise dry-run → dry_run
+        type=lambda s: s.replace("-", "_"),  # normalise dry-run to dry_run
         choices=[m.value for m in RunMode],
         default=RunMode.PILOT.value,
         help="Which subset of conversations to run (default: pilot).",
@@ -67,14 +65,14 @@ Run modes:
         "--opener-id",
         type=str,
         default=None,
-        help="Run pilot with a specific opener ID instead of the first N.",
+        help="Filter to a specific opener by full ID (e.g. gender_005) or bare number (e.g. 5). A bare number matches by suffix across all configured bias types.",
     )
     parser.add_argument(
-    "--parallel",
-    action="store_true",
-    default=False,
-    help="Force parallel execution.",
-    )
+        "--parallel",
+        action="store_true",
+        default=False,
+        help="Force parallel execution.",
+        )
     parser.add_argument(
         "--no-parallel",
         action="store_true",
@@ -82,11 +80,11 @@ Run modes:
         help="Force sequential execution regardless of mode.",
     )
     parser.add_argument(
-    "--suppress-probe-warnings",
-    action="store_true",
-    default=False,
-    help="Suppress probe failure warnings in console output (still logged to file).",
-    )
+        "--suppress-probe-warnings",
+        action="store_true",
+        default=False,
+        help="Suppress probe failure warnings in console output (still logged to file).",
+        )
     return parser.parse_args()
 
 
@@ -152,9 +150,9 @@ async def main() -> int:
 
     # --- Run conversations ---
     rate_limiter = RateLimiter(
-    config.api.concurrency_limits,
-    config.api.rpm_limits,
-)
+        config.api.concurrency_limits,
+        config.api.rpm_limits,
+    )
 
     async with OpenRouterClient(config.api, config.generation, rate_limiter) as client:
         orchestrator = Orchestrator(config, client)

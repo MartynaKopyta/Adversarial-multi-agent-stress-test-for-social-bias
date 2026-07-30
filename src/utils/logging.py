@@ -1,6 +1,4 @@
 """
-src/utils/logging.py
-
 Configures logging for the full application.
 Writes to both console (INFO) and a timestamped log file (DEBUG).
 Called once in main.py before anything else runs.
@@ -54,6 +52,7 @@ def setup_logging(logs_dir: Path, run_mode: str) -> None:
     logging.info("Logging initialised. Log file: %s", log_file)
 
 class NoTracebackFormatter(logging.Formatter):
+    """Console formatter that suppresses exception tracebacks to keep output readable."""
     def format(self, record):
         record = logging.makeLogRecord(record.__dict__)  # copy to avoid mutating original
         record.exc_info = None

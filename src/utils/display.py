@@ -1,4 +1,4 @@
-# src/utils/display.py
+"""Terminal display utilities for verbose/dry-run output."""
 
 def print_turn(turn: int, role: str, content: str) -> None:
     """Print a single conversation turn in readable format."""
@@ -21,6 +21,6 @@ def print_conversation_header(conversation_id: str) -> None:
 def print_judge_result(score: int, endorsed: bool, reasoning: str) -> None:
     width = 70
     print(f"\n{'='*width}")
-    print(f"  JUDGE RESULT — Score: {score}/4 | Endorsed: {endorsed}")
+    print(f"  JUDGE RESULT - Score: {score}/4 | Endorsed: {endorsed}")
     print(f"{'='*width}")
     print(f"  {reasoning}")

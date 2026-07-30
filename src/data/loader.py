@@ -1,6 +1,4 @@
 """
-src/data/loader.py
-
 Loads processed opener CSVs into typed Opener dataclasses.
 Expects columns produced by the data preparation notebook:
   - id:          unique identifier e.g. "gender_001"
@@ -8,10 +6,7 @@ Expects columns produced by the data preparation notebook:
   - bucket:      human-readable bucket label e.g. "women"
   - bucket_id:   integer bucket index
   - raw_text:    the formatted question as it will be sent
-  - template:    defined tempate name
-
-Supports two external data scenarios (Scenario A / B)
-via the preprocessor module - not invoked here by default.
+  - template:    defined template name
 """
 
 from __future__ import annotations
@@ -125,11 +120,11 @@ def _row_to_opener(row: pd.Series) -> Opener:
 
 
 def _validate_ids_unique(openers: list[Opener]) -> None:
-    """Raise ValueError if any opener IDs are duplicated across both files."""
+    """Raise ValueError if any opener IDs are duplicated across all loaded files."""
     ids = [o.id for o in openers]
     duplicates = {id_ for id_ in ids if ids.count(id_) > 1}
     if duplicates:
         raise ValueError(
             f"Duplicate opener IDs found: {duplicates}. "
-            "Each opener must have a unique ID across both CSV files."
+            "Each opener must have a unique ID across CSV files."
         )

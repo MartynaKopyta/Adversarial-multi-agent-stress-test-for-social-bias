@@ -1,6 +1,4 @@
 """
-src/api/client.py
-
 Async OpenRouter client.
 All API calls in the framework go through this module.
 Handles authentication, retries, and error normalisation.
@@ -52,6 +50,10 @@ class RateLimitError(ApiError):
 
 class ApiTimeoutError(Exception):
     """Raised when a request exceeds timeout_seconds."""
+    pass
+
+class ServerError(RateLimitError):
+    """5xx server error - retried with the same backoff logic as rate limits."""
     pass
 
 
@@ -129,7 +131,7 @@ class OpenRouterClient:
             headers={
                 "Authorization": f"Bearer {self._api_key}",
                 "Content-Type": "application/json",
-                "HTTP-Referer": "https://github.com/adversarial-debate",  # OpenRouter best practice
+                "HTTP-Referer": "https://github.com/adversarial-debate",  
             },
             timeout=aiohttp.ClientTimeout(total=self._api_config.timeout_seconds),
         )
@@ -203,7 +205,7 @@ class OpenRouterClient:
                 await asyncio.sleep(wait)
 
             except ApiError:
-                # Non-recoverable (4xx other than 429) — do not retry
+                # Non-recoverable (4xx other than 429) - do not retry
                 raise
 
         if last_error is not None:
@@ -212,20 +214,7 @@ class OpenRouterClient:
         raise RuntimeError("Request failed without a captured exception")  # type: ignore[misc]
     
     async def _post(self, model: str, payload: dict[str, Any]) -> tuple[str, str | None]:
-        """
-        Send one chat completion request with retry handling.
-
-        Returns:
-            tuple[str, str | None]:
-                - content: model response text
-                - reasoning: optional reasoning text if provided by the model
-
-        Retries:
-            - RateLimitError (429) and transient server-side failures
-            - ApiTimeoutError
-        Raises:
-            - ApiError for non-recoverable API failures
-        """
+        """Send one HTTP POST to the completions endpoint and parse the response."""
         assert self._session is not None
 
         try:
@@ -237,7 +226,7 @@ class OpenRouterClient:
 
                 if resp.status >= 500:
                     message = await _read_error_message(resp)
-                    raise RateLimitError(resp.status, message, model)
+                    raise ServerError(resp.status, message, model)
 
                 if resp.status >= 400:
                     message = await _read_error_message(resp)
@@ -247,14 +236,6 @@ class OpenRouterClient:
 
                 choice0 = data.get("choices", [{}])[0]
                 message = choice0.get("message", {})
-                # logger.warning(
-                #     "DEBUG OpenRouter response for %s: finish_reason=%r, message_keys=%r, content_type=%r, message=%r",
-                #     model,
-                #     choice0.get("finish_reason"),
-                #     list(message.keys()) if isinstance(message, dict) else None,
-                #     type(message.get("content")) if isinstance(message, dict) else None,
-                #     message,
-                # )
                 return _extract_content(data, model)
 
         except asyncio.TimeoutError as e:
@@ -323,6 +304,6 @@ def _parse_retry_after(headers) -> float | None:
     try:
         return float(value)
     except ValueError:
-        # Could be an HTTP date string — fall back to fixed backoff
+        # Could be an HTTP date string - fall back to fixed backoff
         logger.debug("Unparseable Retry-After header: %r", value)
         return None

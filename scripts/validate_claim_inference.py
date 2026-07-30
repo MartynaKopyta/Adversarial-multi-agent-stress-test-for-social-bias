@@ -1,14 +1,26 @@
 """
-scripts/validate_claim_inference.py
+Runs claim inference for each opener that has a known ground-truth
+target_claim and writes the results to a CSV for manual review.
 
-Runs claim inference on every opener with a known target_claim and
-writes a comparison CSV for manual/qualitative review. One-off
-validation script, not part of the main pipeline — reuses the exact
-persuader agent and model configured for the main experiment so
-results reflect what actually happened during the real run.
+This is a standalone validation helper rather than part of the main
+experiment pipeline. It uses the same persuader agent and model
+configuration as the real run so the validation reflects the behavior
+of the actual experiment setup.
+
+What it does:
+- Loads the configured openers from the experiment data.
+- Filters to openers with a non-empty target_claim.
+- Runs claim inference through the configured persuader agent.
+- Writes a comparison CSV containing the opener metadata and the
+  inferred claim for each sample.
+
+Output:
+- Writes to results/claim_inference_validation.csv.
+- Each row includes the opener id, bias type, bucket, template,
+  target_claim, and inferred_claim.
 
 Usage:
-    python scripts/validate_claim_inference.py
+    uv run python scripts/validate_claim_inference.py
 """
 
 from __future__ import annotations

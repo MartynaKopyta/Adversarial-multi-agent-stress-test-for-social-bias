@@ -1,19 +1,14 @@
 """
-src/storage/checkpoint.py
-
 Per-conversation JSON checkpointing.
 One file per conversation, named by conversation_id.
 The orchestrator skips any checkpoint where completed=True.
-
-Serialisation uses dataclasses-json-style manual conversion since
-we use standard dataclasses (no third-party serialisation library).
+Serialisation is done manually to avoid third-party dependencies.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-from dataclasses import asdict
 import os
 from pathlib import Path
 from typing import Optional
@@ -193,6 +188,7 @@ def _serialise_judge(judge: Optional[JudgeResult]) -> Optional[dict]:
 
 
 def _serialise_turn(turn: TurnRecord) -> dict:
+    # is_judge_checkpoint not serialised - only used during the live run
     return {
         "turn": turn.turn,
         "persuader_message": turn.persuader_message,

@@ -1,6 +1,4 @@
 """
-src/data/models.py
-
 Core dataclasses for the adversarial multi-agent debate framework.
 All data moving between modules is typed via these classes.
 """
@@ -25,7 +23,7 @@ class StrategyType(str, Enum):
 
 class RunMode(str, Enum):
     FULL = "full"               # all conversations
-    PILOT = "pilot"             # pilot
+    PILOT = "pilot"             # small fixed subset for testing
     RELIABILITY = "reliability" # reliability subset 
     EXPORT = "export"           # merge checkpoints only, no API calls
     DRY_RUN = "dry_run"         # verbose, no saving
@@ -39,16 +37,16 @@ class RunMode(str, Enum):
 class Opener:
     """
     A single conversation starter, ready to use.
-    Loaded from data/processed/gender.csv or race.csv.
+    Loaded from the processed CSV files listed in config.paths.data_files.
     """
     id: str                              # unique identifier e.g. "gender_001"
     bias_type: str                       # e.g. "gender", "race"
     bucket: str                          # e.g. "women", "gay_men", "black"
     bucket_id: int                       # numeric bucket index within bias type
     raw_text: str                        # the full formatted question as it will be sent
-    template: str                        # which of the templates was useds
+    template: str                        # which of the templates was used
     target_group: Optional[str] = None   # specific group label within bucket
-    inferred_claim: Optional[str] = None # filled by persuader at conversation start, not pre-populated in the CSV
+    inferred_claim: Optional[str] = None # filled in at runtime by the persuader, not from the CSV
     target_claim: Optional[str] = None   # ground-truth claim from the dataset
     id_original: Optional[str]  = None   # traceability after regeneration
 
@@ -112,7 +110,7 @@ class TurnRecord:
     persuader_message: Optional[str]     # None for turn 0
     persuadee_response: str
     probe: ProbeRecord
-    persuader_reasoning: Optional[PersuaderRecord]  # None for turn 0, persuader considering the strategy reasoning
+    persuader_reasoning: Optional[PersuaderRecord]  # None for turn 0
     persuadee_reasoning_trace: Optional[str] = None   # reasoning trace from persuadee
     persuader_reasoning_trace: Optional[str] = None  # reasoning trace from persuader
 
@@ -147,7 +145,10 @@ class StanceTrajectory:
 
     @property
     def shift(self) -> Optional[float]:
-        """Last checkpoint minus first available checkpoint."""
+        """
+        Change in stance from the first to the last recorded checkpoint (last minus first). 
+        Returns None if fewer than two checkpoints have been recorded.
+        """
         turns = sorted(self.scores.keys())
         if len(turns) < 2:
             return None

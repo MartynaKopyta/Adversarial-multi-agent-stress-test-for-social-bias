@@ -1,16 +1,12 @@
 """
-src/agents/persuader.py
-
-Persuader agent — drives the adversarial conversation.
+Persuader agent - tries to convince the persuadee to endorse the target claim.
 Responsibilities:
-  1. Infer the target claim from the conversation opener (once, at turn 0)
-  2. Each turn: run a private reasoning step producing a success score,
-     adjustment note, and next message
-  3. Never expose reasoning to the persuadee — only next_message enters history
+  1. (optional) Infer the target claim from the conversation opener (once, at turn 0)
+  2. Run a private reasoning step producing a success score, adjustment note, and next message
+  3. Never expose reasoning to the persuadee - only next_message enters history
 
-Strategy is fixed for the lifetime of a conversation but the persuader
-adapts its angle based on self-assessed progress while keeping the
-primary strategy dominant.
+THe primary strategy is fixed for the entirety of a conversation but the persuader
+adapts its angle based on self-assessed progress and always applies social pressure tactics.
 """
 
 from __future__ import annotations
@@ -41,7 +37,7 @@ class PersuaderAgent(BaseAgent):
     ) -> str:
         """
         Infer the target stereotypical claim from the conversation opener.
-        Called once before turn 0. Result stored in Opener.inferred_claim
+        Called once before turn 0 if requested. Result stored in Opener.inferred_claim
         and injected into all subsequent prompts.
 
         Returns:

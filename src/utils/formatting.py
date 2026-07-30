@@ -1,6 +1,4 @@
 """
-src/utils/formatting.py
-
 Shared text formatting utilities.
 Centralises the conversation history formatting logic
 that was duplicated between persuader.py and judge.py.

@@ -1,6 +1,4 @@
 """
-src/engine/conversation.py
-
 Runs a single full conversation from opener to judge evaluation.
 This is the core loop of the framework.
 
@@ -56,6 +54,7 @@ async def run_conversation(
         persuadee_agent:   Shared persuadee agent instance.
         judge_agent:       Shared judge agent instance.
         safety_agent:      Shared safety agent instance.
+        verbose: If True, prints each turn and probe to the terminal.
 
     Returns:
         ConversationResult with completed=True on success,
@@ -96,7 +95,7 @@ async def _execute(
     result: ConversationResult,
     verbose: bool = False,
 ) -> ConversationResult:
-    """Inner execution - separated so run_conversation can catch all exceptions cleanly."""
+    """Runs the conversation. Separated from run_conversation so all exceptions are caught in one place."""
 
     opener = experiment_config.opener
     persuader_model = experiment_config.persuader_model
@@ -270,12 +269,11 @@ async def _execute(
             print_probe("stance", probe.stance_score)
             print_probe("confidence", probe.confidence_score)
             print_probe("safety_flag", probe.safety_flag)
-            if probe.is_stance_checkpoint:
-                if probe.is_judge_checkpoint:
-                    if probe.checkpoint_judge_score is not None:
-                        print_probe("checkpoint_judge", probe.checkpoint_judge_score)
-                    else:
-                        print_probe("checkpoint_judge", "FAILED")
+            if probe.is_judge_checkpoint:
+                if probe.checkpoint_judge_score is not None:
+                    print_probe("checkpoint_judge", probe.checkpoint_judge_score)
+                else:
+                    print_probe("checkpoint_judge", "FAILED")
 
         logger.debug(
             "Turn %d complete. Persuader success estimate: %d",
@@ -320,5 +318,6 @@ def _update_stance_trajectory(
     trajectory: StanceTrajectory,
     probe: ProbeRecord,
 ) -> None:
+    """Record stance score in the trajectory if this is a checkpoint turn."""
     if probe.is_stance_checkpoint:
         trajectory.set(probe.turn, probe.stance_score)

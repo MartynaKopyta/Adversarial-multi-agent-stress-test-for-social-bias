@@ -1,6 +1,4 @@
 """
-src/agents/base.py
-
 Abstract base class for all agents in the framework.
 Every agent receives the shared client and config at construction
 and exposes a single async method appropriate to its role.
